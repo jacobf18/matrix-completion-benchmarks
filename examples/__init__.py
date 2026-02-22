@@ -1,0 +1,2 @@
+"""Example plugins for mcbench."""
+

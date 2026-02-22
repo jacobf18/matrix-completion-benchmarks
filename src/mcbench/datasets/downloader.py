@@ -1,0 +1,204 @@
+from __future__ import annotations
+
+import csv
+import io
+import json
+import urllib.error
+import urllib.request
+import zipfile
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+import numpy as np
+
+from ..io import save_json, save_matrix
+from .catalog import DatasetSpec
+
+
+def _download_url(urls: list[str], destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    last_error: Exception | None = None
+    for url in urls:
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "mcbench/0.1"})
+            with urllib.request.urlopen(request) as response:
+                destination.write_bytes(response.read())
+            return destination
+        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            last_error = exc
+    failed = ", ".join(urls)
+    raise RuntimeError(f"Failed to download from all candidate URLs: {failed}") from last_error
+
+
+def _dense_from_triplets(
+    row_ids: np.ndarray,
+    col_ids: np.ndarray,
+    values: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    unique_rows = np.unique(row_ids)
+    unique_cols = np.unique(col_ids)
+    row_to_idx = {int(v): i for i, v in enumerate(unique_rows)}
+    col_to_idx = {int(v): i for i, v in enumerate(unique_cols)}
+
+    matrix = np.full((unique_rows.size, unique_cols.size), np.nan, dtype=np.float64)
+    for r, c, val in zip(row_ids, col_ids, values):
+        matrix[row_to_idx[int(r)], col_to_idx[int(c)]] = float(val)
+    return matrix, unique_rows, unique_cols
+
+
+def _find_column(columns: dict[str, str], candidates: list[str]) -> str:
+    for candidate in candidates:
+        if candidate in columns:
+            return columns[candidate]
+    known = ", ".join(sorted(columns))
+    wanted = ", ".join(candidates)
+    raise ValueError(f"Could not find one of [{wanted}] in columns: {known}")
+
+
+class DatasetDownloader(ABC):
+    def __init__(self, spec: DatasetSpec) -> None:
+        self.spec = spec
+
+    @abstractmethod
+    def fetch(self, output_root: Path) -> Path:
+        """Download and materialize dataset matrix under output_root."""
+
+    def _candidate_urls(self) -> list[str]:
+        return [self.spec.source_url, *self.spec.mirror_urls]
+
+    def _write_outputs(
+        self,
+        output_dir: Path,
+        matrix: np.ndarray,
+        row_labels: np.ndarray,
+        col_labels: np.ndarray,
+        raw_path: Path,
+    ) -> Path:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        save_matrix(output_dir / "matrix.npy", matrix)
+        np.save(output_dir / "row_labels.npy", row_labels.astype(str))
+        np.save(output_dir / "col_labels.npy", col_labels.astype(str))
+        save_json(
+            output_dir / "source_meta.json",
+            {
+                "dataset_id": self.spec.dataset_id,
+                "kind": self.spec.kind,
+                "description": self.spec.description,
+                "source_url": self.spec.source_url,
+                "citation_url": self.spec.citation_url,
+                "raw_path": str(raw_path),
+                "shape": list(matrix.shape),
+                "known_count": int(np.sum(np.isfinite(matrix))),
+            },
+        )
+        return output_dir
+
+    def is_ready(self, output_root: Path) -> bool:
+        dataset_dir = output_root / self.spec.dataset_id
+        required = [
+            dataset_dir / "matrix.npy",
+            dataset_dir / "row_labels.npy",
+            dataset_dir / "col_labels.npy",
+            dataset_dir / "source_meta.json",
+        ]
+        return all(path.exists() for path in required)
+
+
+class MovieLensDownloader(DatasetDownloader):
+    def fetch(self, output_root: Path) -> Path:
+        raw_dir = output_root / self.spec.dataset_id / "raw"
+        raw_zip = _download_url(self._candidate_urls(), raw_dir / "archive.zip")
+        with zipfile.ZipFile(raw_zip, "r") as zf:
+            if self.spec.dataset_id == "movielens_100k":
+                with zf.open("ml-100k/u.data", "r") as fh:
+                    rows = [line.decode("utf-8").strip().split("\t") for line in fh if line.strip()]
+                    row_ids = np.array([int(r[0]) for r in rows], dtype=np.int64)
+                    col_ids = np.array([int(r[1]) for r in rows], dtype=np.int64)
+                    values = np.array([float(r[2]) for r in rows], dtype=np.float64)
+            elif self.spec.dataset_id == "movielens_1m":
+                with zf.open("ml-1m/ratings.dat", "r") as fh:
+                    rows = [line.decode("latin-1").strip().split("::") for line in fh if line.strip()]
+                    row_ids = np.array([int(r[0]) for r in rows], dtype=np.int64)
+                    col_ids = np.array([int(r[1]) for r in rows], dtype=np.int64)
+                    values = np.array([float(r[2]) for r in rows], dtype=np.float64)
+            elif self.spec.dataset_id == "movielens_latest_small":
+                with zf.open("ml-latest-small/ratings.csv", "r") as fh:
+                    reader = csv.DictReader(io.TextIOWrapper(fh, encoding="utf-8"))
+                    row_ids, col_ids, values = [], [], []
+                    for row in reader:
+                        row_ids.append(int(row["userId"]))
+                        col_ids.append(int(row["movieId"]))
+                        values.append(float(row["rating"]))
+                    row_ids = np.array(row_ids, dtype=np.int64)
+                    col_ids = np.array(col_ids, dtype=np.int64)
+                    values = np.array(values, dtype=np.float64)
+            else:
+                raise ValueError(f"Unsupported MovieLens dataset: {self.spec.dataset_id}")
+
+        matrix, users, items = _dense_from_triplets(row_ids=row_ids, col_ids=col_ids, values=values)
+        return self._write_outputs(output_root / self.spec.dataset_id, matrix, users, items, raw_zip)
+
+
+class RDatasetsPanelDownloader(DatasetDownloader):
+    def fetch(self, output_root: Path) -> Path:
+        raw_dir = output_root / self.spec.dataset_id / "raw"
+        raw_csv = _download_url(self._candidate_urls(), raw_dir / "dataset.csv")
+
+        rows: list[dict[str, str]] = []
+        with raw_csv.open("r", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                rows.append(row)
+
+        if not rows:
+            raise ValueError(f"Empty dataset for {self.spec.dataset_id}")
+
+        colmap = {k.lower(): k for k in rows[0].keys()}
+        unit_key = _find_column(colmap, ["state", "regionname", "region", "unit"])
+        time_key = _find_column(colmap, ["year", "time", "period"])
+
+        if self.spec.dataset_id == "prop99_smoking":
+            value_key = _find_column(colmap, ["cigsale", "cig.sales", "outcome"])
+        elif self.spec.dataset_id == "basque_gdpcap":
+            value_key = _find_column(colmap, ["gdpcap", "gdp.cap", "outcome"])
+        else:
+            value_key = _find_column(colmap, ["outcome", "value"])
+
+        units = sorted({row[unit_key] for row in rows})
+        periods = sorted({int(float(row[time_key])) for row in rows})
+        unit_to_idx = {u: i for i, u in enumerate(units)}
+        period_to_idx = {t: i for i, t in enumerate(periods)}
+        matrix = np.full((len(units), len(periods)), np.nan, dtype=np.float64)
+
+        for row in rows:
+            unit = row[unit_key]
+            period = int(float(row[time_key]))
+            try:
+                value = float(row[value_key])
+            except ValueError:
+                continue
+            matrix[unit_to_idx[unit], period_to_idx[period]] = value
+
+        return self._write_outputs(
+            output_root / self.spec.dataset_id,
+            matrix,
+            np.array(units, dtype=object),
+            np.array(periods, dtype=np.int64),
+            raw_csv,
+        )
+
+
+def build_downloader(spec: DatasetSpec) -> DatasetDownloader:
+    if spec.dataset_id.startswith("movielens_"):
+        return MovieLensDownloader(spec)
+    if spec.dataset_id in {"prop99_smoking", "basque_gdpcap"}:
+        return RDatasetsPanelDownloader(spec)
+    raise ValueError(f"No downloader implemented for '{spec.dataset_id}'.")
+
+
+def write_download_manifest(output_root: Path, dataset_dirs: list[Path]) -> None:
+    manifest = {
+        "output_root": str(output_root),
+        "dataset_dirs": [str(path) for path in dataset_dirs],
+    }
+    (output_root / "download_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

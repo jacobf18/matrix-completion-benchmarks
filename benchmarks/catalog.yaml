@@ -1,0 +1,60 @@
+version: 1
+datasets:
+  movielens_100k:
+    kind: recommender
+    description: "MovieLens 100K ratings matrix (users x items)."
+    source_url: "https://files.grouplens.org/datasets/movielens/ml-100k.zip"
+    citation_url: "https://grouplens.org/datasets/movielens/100k/"
+  movielens_1m:
+    kind: recommender
+    description: "MovieLens 1M ratings matrix (users x items)."
+    source_url: "https://files.grouplens.org/datasets/movielens/ml-1m.zip"
+    citation_url: "https://grouplens.org/datasets/movielens/1m/"
+  movielens_latest_small:
+    kind: recommender
+    description: "MovieLens latest-small ratings matrix (users x items)."
+    source_url: "https://files.grouplens.org/datasets/movielens/ml-latest-small.zip"
+    citation_url: "https://grouplens.org/datasets/movielens/"
+  prop99_smoking:
+    kind: causal_panel
+    description: "California Proposition 99 cigarette sales panel benchmark."
+    source_url: "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/Synth/smoking.csv"
+    mirror_urls:
+      - "https://vincentarelbundock.github.io/Rdatasets/csv/Synth/smoking.csv"
+    citation_url: "https://www.nber.org/papers/w12831"
+  basque_gdpcap:
+    kind: causal_panel
+    description: "Basque Country GDP per capita panel benchmark."
+    source_url: "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/Synth/basque.csv"
+    mirror_urls:
+      - "https://vincentarelbundock.github.io/Rdatasets/csv/Synth/basque.csv"
+    citation_url: "https://search.r-project.org/CRAN/refmans/Synth/html/basque.html"
+
+noisy_benchmarks:
+  gaussian_noise_ml100k:
+    base_dataset: movielens_100k
+    description: "Additive Gaussian noise benchmark over known ratings."
+    noise_type: gaussian
+    citation_url: "https://jmlr.csail.mit.edu/papers/v17/15-273.html"
+    params:
+      sigma: 0.25
+      clip_min: 1.0
+      clip_max: 5.0
+  sparse_corruption_ml100k:
+    base_dataset: movielens_100k
+    description: "Sparse gross corruption on a subset of known ratings."
+    noise_type: sparse_corruption
+    citation_url: "https://www.ijcai.org/Proceedings/13/Papers/390.pdf"
+    params:
+      corruption_fraction: 0.1
+      corruption_scale: 2.5
+      clip_min: 1.0
+      clip_max: 5.0
+  one_bit_flip_ml100k:
+    base_dataset: movielens_100k
+    description: "Binary rating conversion with random sign-flip noise."
+    noise_type: one_bit_flip
+    citation_url: "https://proceedings.mlr.press/v89/shen19a.html"
+    params:
+      threshold: 3.0
+      flip_probability: 0.15
