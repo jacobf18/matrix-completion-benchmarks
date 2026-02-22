@@ -36,61 +36,108 @@ class RowMeanImputer(MatrixCompletionAlgorithm):
 @ALGORITHM_REGISTRY.register("soft_impute")
 class SoftImpute(MatrixCompletionAlgorithm):
     def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
-        shrinkage = float(kwargs.get("shrinkage", 1.0))
-        max_iters = int(kwargs.get("max_iters", 100))
-        tol = float(kwargs.get("tol", 1e-5))
-        rank = kwargs.get("rank")
-        init_fill = str(kwargs.get("init_fill", "global_mean"))
+        try:
+            from fancyimpute import SoftImpute as FancySoftImpute
+        except ImportError as exc:
+            raise ImportError(
+                "soft_impute requires the optional dependency 'fancyimpute'. "
+                "Install with: pip install fancyimpute"
+            ) from exc
 
-        if shrinkage < 0:
-            raise ValueError("shrinkage must be >= 0.")
-        if max_iters < 1:
-            raise ValueError("max_iters must be >= 1.")
-        if tol <= 0:
-            raise ValueError("tol must be > 0.")
-        if rank is not None:
-            rank = int(rank)
-            if rank < 1:
-                raise ValueError("rank must be >= 1 when provided.")
+        solver = FancySoftImpute(
+            shrinkage_value=kwargs.get("shrinkage"),
+            max_rank=kwargs.get("rank"),
+            max_iters=int(kwargs.get("max_iters", 100)),
+            convergence_threshold=float(kwargs.get("tol", 1e-5)),
+            init_fill_method=str(kwargs.get("init_fill", "zero")),
+            verbose=bool(kwargs.get("verbose", False)),
+        )
+        return np.asarray(solver.fit_transform(observed.astype(np.float64, copy=True)), dtype=np.float64)
 
-        matrix = observed.astype(np.float64, copy=True)
-        known = np.isfinite(matrix)
-        missing = ~known
-        if not np.any(known):
-            raise ValueError("Input has no finite entries.")
 
-        if init_fill == "zero":
-            matrix[missing] = 0.0
-        elif init_fill == "global_mean":
-            matrix[missing] = float(np.nanmean(matrix))
-        else:
-            raise ValueError("init_fill must be one of: 'global_mean', 'zero'.")
+@ALGORITHM_REGISTRY.register("nuclear_norm_minimization")
+class NuclearNormMinimization(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            from fancyimpute import NuclearNormMinimization as FancyNNM
+        except ImportError as exc:
+            raise ImportError(
+                "nuclear_norm_minimization requires the optional dependency 'fancyimpute'. "
+                "Install with: pip install fancyimpute"
+            ) from exc
 
-        if not np.any(missing):
-            return matrix
+        solver = FancyNNM(
+            require_symmetric_solution=bool(kwargs.get("require_symmetric_solution", False)),
+            min_value=kwargs.get("min_value"),
+            max_value=kwargs.get("max_value"),
+            error_tolerance=float(kwargs.get("error_tolerance", 1e-8)),
+            max_iters=int(kwargs.get("max_iters", 50000)),
+            verbose=bool(kwargs.get("verbose", False)),
+        )
+        return np.asarray(solver.fit_transform(observed.astype(np.float64, copy=True)), dtype=np.float64)
 
-        for _ in range(max_iters):
-            u, singular_values, vt = np.linalg.svd(matrix, full_matrices=False)
-            if rank is not None:
-                u = u[:, :rank]
-                singular_values = singular_values[:rank]
-                vt = vt[:rank, :]
 
-            singular_values = np.maximum(singular_values - shrinkage, 0.0)
-            active = singular_values > 0
+@ALGORITHM_REGISTRY.register("hyperimpute")
+class HyperImputeBaseline(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            import pandas as pd
+            from hyperimpute.plugins.imputers import Imputers
+        except ImportError as exc:
+            raise ImportError(
+                "hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. "
+                "Install with: pip install hyperimpute pandas"
+            ) from exc
 
-            if np.any(active):
-                low_rank = (u[:, active] * singular_values[active]) @ vt[active, :]
-            else:
-                low_rank = np.zeros_like(matrix)
+        data = observed.astype(np.float64, copy=True)
+        if not np.any(~np.isfinite(data)):
+            return data
 
-            next_matrix = low_rank
-            next_matrix[known] = observed[known]
+        plugin_kwargs = dict(kwargs)
+        plugin = Imputers().get("hyperimpute", **plugin_kwargs)
+        transformed = plugin.fit_transform(pd.DataFrame(data))
+        return np.asarray(transformed, dtype=np.float64)
 
-            denom = np.linalg.norm(matrix[missing]) + 1e-12
-            delta = np.linalg.norm((next_matrix - matrix)[missing]) / denom
-            matrix = next_matrix
-            if delta < tol:
-                break
 
-        return matrix
+@ALGORITHM_REGISTRY.register("missforest")
+class MissForestBaseline(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            import pandas as pd
+            from hyperimpute.plugins.imputers import Imputers
+        except ImportError as exc:
+            raise ImportError(
+                "missforest requires optional dependencies 'hyperimpute' and 'pandas'. "
+                "Install with: pip install hyperimpute pandas"
+            ) from exc
+
+        data = observed.astype(np.float64, copy=True)
+        if not np.any(~np.isfinite(data)):
+            return data
+
+        plugin_kwargs = dict(kwargs)
+        plugin = Imputers().get("missforest", **plugin_kwargs)
+        transformed = plugin.fit_transform(pd.DataFrame(data))
+        return np.asarray(transformed, dtype=np.float64)
+
+
+@ALGORITHM_REGISTRY.register("forest_diffusion")
+class ForestDiffusionBaseline(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            from ForestDiffusion import ForestDiffusionModel
+        except ImportError as exc:
+            raise ImportError(
+                "forest_diffusion requires optional dependency 'ForestDiffusion'. "
+                "Install with: pip install ForestDiffusion"
+            ) from exc
+
+        data = observed.astype(np.float64, copy=True)
+        if not np.any(~np.isfinite(data)):
+            return data
+
+        model_kwargs = dict(kwargs)
+        k = int(model_kwargs.pop("k", 1))
+        model = ForestDiffusionModel(X=data, label_y=None, **model_kwargs)
+        imputed = model.impute(k=k)
+        return np.asarray(imputed, dtype=np.float64)

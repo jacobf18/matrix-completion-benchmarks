@@ -209,3 +209,4 @@ __marimo__/
 # Benchmark downloads and generated noisy source matrices
 benchmarks/sources/
 benchmarks/noisy_sources/
+benchmarks/simulated/

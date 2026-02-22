@@ -43,6 +43,12 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+Install imputation extras for `soft_impute`, `nuclear_norm_minimization`, `hyperimpute`, `missforest`, and `forest_diffusion`:
+
+```bash
+pip install -e '.[impute]'
+```
+
 ## Benchmark Catalog
 
 The repository includes `/Users/jfeit/matrix-completion-benchmarks/benchmarks/catalog.yaml` with:
@@ -55,9 +61,11 @@ The repository includes `/Users/jfeit/matrix-completion-benchmarks/benchmarks/ca
   - `prop99_smoking` (California Proposition 99 smoking panel)
   - `basque_gdpcap`
 - Noisy matrix completion presets:
-  - `gaussian_noise_ml100k`
-  - `sparse_corruption_ml100k`
-  - `one_bit_flip_ml100k`
+  - `sim_lr_gaussian_low`
+  - `sim_lr_gaussian_medium`
+  - `sim_lr_gaussian_high`
+  - `sim_orthogonal_student_t`
+  - `sim_block_sparse_corrupt`
 
 List catalog entries:
 
@@ -91,13 +99,22 @@ mcbench fetch-dataset \
   --force
 ```
 
-Generate noisy benchmark matrices from catalog presets:
+Generate synthetic noisy benchmark matrices from catalog presets:
 
 ```bash
-mcbench make-noisy \
-  --benchmark-id gaussian_noise_ml100k \
-  --source-root benchmarks/sources \
-  --output-root benchmarks/noisy_sources \
+mcbench generate-simulated \
+  --preset-id sim_lr_gaussian_medium \
+  --output-root benchmarks/simulated \
+  --seed 42
+```
+
+Override preset parameters to sweep noise levels or dimensions:
+
+```bash
+mcbench generate-simulated \
+  --preset-id sim_lr_gaussian_medium \
+  --params-json '{"sigma": 0.25, "rank": 15, "observed_fraction": 0.25}' \
+  --output-root benchmarks/simulated \
   --seed 42
 ```
 
@@ -157,6 +174,10 @@ This separation lets you run slow algorithms once, then evaluate many metric set
 - `global_mean`
 - `row_mean`
 - `soft_impute`
+- `nuclear_norm_minimization`
+- `hyperimpute`
+- `missforest`
+- `forest_diffusion`
 
 List all available algorithms:
 
@@ -164,7 +185,7 @@ List all available algorithms:
 mcbench list-algorithms
 ```
 
-`soft_impute` parameters can be passed with `--params-json`, for example:
+`soft_impute` parameters (backed by `fancyimpute.SoftImpute`) can be passed with `--params-json`, for example:
 
 ```bash
 mcbench run-algorithm \
@@ -172,6 +193,42 @@ mcbench run-algorithm \
   --algorithm soft_impute \
   --params-json '{"shrinkage": 0.8, "max_iters": 200, "tol": 1e-6, "rank": 20, "init_fill": "global_mean"}' \
   --output-dir benchmarks/runs/movie_lens_small/soft_impute
+```
+
+`nuclear_norm_minimization` parameters (backed by `fancyimpute.NuclearNormMinimization`) example:
+
+```bash
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm nuclear_norm_minimization \
+  --params-json '{"max_iters": 5000, "error_tolerance": 1e-7, "min_value": 0.0, "max_value": 5.0}' \
+  --output-dir benchmarks/runs/movie_lens_small/nuclear_norm_minimization
+```
+
+`hyperimpute` and `missforest` (both via `hyperimpute.plugins.imputers`) examples:
+
+```bash
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm hyperimpute \
+  --params-json '{}' \
+  --output-dir benchmarks/runs/movie_lens_small/hyperimpute
+
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm missforest \
+  --params-json '{}' \
+  --output-dir benchmarks/runs/movie_lens_small/missforest
+```
+
+`forest_diffusion` (via `ForestDiffusion.ForestDiffusionModel`) example:
+
+```bash
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm forest_diffusion \
+  --params-json '{"n_t": 25, "model": "xgboost", "diffusion_type": "vp", "n_estimators": 100, "max_depth": 7, "k": 1}' \
+  --output-dir benchmarks/runs/movie_lens_small/forest_diffusion
 ```
 
 ## Built-in Metrics

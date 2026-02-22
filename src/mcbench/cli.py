@@ -10,6 +10,7 @@ from .algorithms import ALGORITHM_REGISTRY
 from .datasets.catalog import load_catalog
 from .datasets.downloader import build_downloader, write_download_manifest
 from .datasets.noisy import make_noisy_matrix
+from .datasets.simulated import generate_simulated_noisy_benchmark
 from .metrics import METRIC_REGISTRY
 from .workflows.evaluate import evaluate_prediction
 from .workflows.prepare import prepare_random_holdout
@@ -94,6 +95,16 @@ def build_parser() -> argparse.ArgumentParser:
     noisy.add_argument("--output-root", type=Path, default=Path("benchmarks/noisy_sources"))
     noisy.add_argument("--seed", type=int, default=0)
 
+    synth = subparsers.add_parser(
+        "generate-simulated",
+        help="Generate synthetic noisy matrix benchmark from catalog preset.",
+    )
+    synth.add_argument("--preset-id", required=True)
+    synth.add_argument("--catalog-path", type=Path, default=_default_catalog_path())
+    synth.add_argument("--output-root", type=Path, default=Path("benchmarks/simulated"))
+    synth.add_argument("--params-json", default="{}")
+    synth.add_argument("--seed", type=int, default=0)
+
     return parser
 
 
@@ -149,6 +160,9 @@ def main() -> None:
         print("noisy_benchmarks:")
         for bench_id, spec in sorted(catalog.noisy_benchmarks.items()):
             print(f"  - {bench_id} (base={spec.base_dataset}, noise_type={spec.noise_type})")
+        print("synthetic_noisy_benchmarks:")
+        for bench_id, spec in sorted(catalog.synthetic_noisy_benchmarks.items()):
+            print(f"  - {bench_id} (dgp={spec.dgp_type}, noise_type={spec.noise_type})")
         return
 
     if args.command == "fetch-dataset":
@@ -157,11 +171,14 @@ def main() -> None:
         if args.skip_existing and args.force:
             raise ValueError("--skip-existing and --force cannot be used together.")
         downloaded_dirs: list[Path] = []
+        failed_datasets: list[str] = []
         for dataset_id in args.dataset_id:
             spec = catalog.datasets.get(dataset_id)
             if spec is None:
                 known = ", ".join(sorted(catalog.datasets))
-                raise ValueError(f"Unknown dataset_id '{dataset_id}'. Known: {known}")
+                print(f"warning: unknown dataset_id '{dataset_id}'. Known: {known}")
+                failed_datasets.append(dataset_id)
+                continue
             downloader = build_downloader(spec)
             if args.skip_existing and downloader.is_ready(output_root=output_root):
                 output_dir = output_root / dataset_id
@@ -171,12 +188,17 @@ def main() -> None:
             try:
                 output_dir = downloader.fetch(output_root=output_root)
             except Exception as exc:
-                raise RuntimeError(
-                    f"Failed fetching dataset '{dataset_id}' from '{spec.source_url}'."
-                ) from exc
+                print(
+                    "warning: "
+                    f"failed fetching dataset '{dataset_id}' from '{spec.source_url}': {exc}"
+                )
+                failed_datasets.append(dataset_id)
+                continue
             downloaded_dirs.append(output_dir)
             print(f"downloaded: {dataset_id} -> {output_dir}")
         write_download_manifest(output_root=output_root, dataset_dirs=downloaded_dirs)
+        if failed_datasets:
+            print(f"warning: {len(failed_datasets)} dataset(s) failed: {', '.join(failed_datasets)}")
         return
 
     if args.command == "make-noisy":
@@ -200,6 +222,26 @@ def main() -> None:
             seed=args.seed,
         )
         print(f"generated noisy benchmark: {args.benchmark_id} -> {out_matrix_path}")
+        return
+
+    if args.command == "generate-simulated":
+        catalog = load_catalog(args.catalog_path)
+        spec = catalog.synthetic_noisy_benchmarks.get(args.preset_id)
+        if spec is None:
+            known = ", ".join(sorted(catalog.synthetic_noisy_benchmarks))
+            raise ValueError(f"Unknown preset_id '{args.preset_id}'. Known: {known}")
+        overrides = _json_dict(args.params_json)
+        merged_params = dict(spec.params)
+        merged_params.update(overrides)
+        out_dir = args.output_root / args.preset_id
+        generate_simulated_noisy_benchmark(
+            output_dir=out_dir,
+            dgp_type=spec.dgp_type,
+            noise_type=spec.noise_type,
+            params=merged_params,
+            seed=args.seed,
+        )
+        print(f"generated simulated benchmark: {args.preset_id} -> {out_dir}")
         return
 
     raise RuntimeError(f"Unsupported command: {args.command}")

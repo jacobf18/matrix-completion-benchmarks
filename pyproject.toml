@@ -10,6 +10,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "PyYAML>=6.0"]
 
+[project.optional-dependencies]
+impute = [
+  "fancyimpute>=0.7.0",
+  "hyperimpute>=0.1.17",
+  "ForestDiffusion>=1.0.6",
+  "pandas>=2.0",
+]
+
 [project.scripts]
 mcbench = "mcbench.cli:main"
 

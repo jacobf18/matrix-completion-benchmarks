@@ -30,31 +30,70 @@ datasets:
       - "https://vincentarelbundock.github.io/Rdatasets/csv/Synth/basque.csv"
     citation_url: "https://search.r-project.org/CRAN/refmans/Synth/html/basque.html"
 
-noisy_benchmarks:
-  gaussian_noise_ml100k:
-    base_dataset: movielens_100k
-    description: "Additive Gaussian noise benchmark over known ratings."
+noisy_benchmarks: {}
+
+synthetic_noisy_benchmarks:
+  sim_lr_gaussian_low:
+    description: "Low-rank Gaussian factors with low Gaussian noise."
+    dgp_type: low_rank_gaussian
     noise_type: gaussian
-    citation_url: "https://jmlr.csail.mit.edu/papers/v17/15-273.html"
     params:
-      sigma: 0.25
-      clip_min: 1.0
-      clip_max: 5.0
-  sparse_corruption_ml100k:
-    base_dataset: movielens_100k
-    description: "Sparse gross corruption on a subset of known ratings."
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 0.05
+  sim_lr_gaussian_medium:
+    description: "Low-rank Gaussian factors with medium Gaussian noise."
+    dgp_type: low_rank_gaussian
+    noise_type: gaussian
+    params:
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 0.15
+  sim_lr_gaussian_high:
+    description: "Low-rank Gaussian factors with high Gaussian noise."
+    dgp_type: low_rank_gaussian
+    noise_type: gaussian
+    params:
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 0.35
+  sim_orthogonal_student_t:
+    description: "Orthogonal low-rank matrix with heavy-tailed Student-t noise."
+    dgp_type: low_rank_orthogonal
+    noise_type: student_t
+    params:
+      n_rows: 500
+      n_cols: 350
+      rank: 12
+      observed_fraction: 0.3
+      eval_fraction: 0.2
+      singular_decay: 0.82
+      df: 3.0
+      scale: 0.2
+  sim_block_sparse_corrupt:
+    description: "Block-structured matrix with sparse gross corruption."
+    dgp_type: block_low_rank
     noise_type: sparse_corruption
-    citation_url: "https://www.ijcai.org/Proceedings/13/Papers/390.pdf"
     params:
-      corruption_fraction: 0.1
+      n_rows: 360
+      n_cols: 280
+      rank: 8
+      observed_fraction: 0.32
+      eval_fraction: 0.25
+      n_row_groups: 6
+      n_col_groups: 5
+      group_noise: 0.08
+      corruption_fraction: 0.06
       corruption_scale: 2.5
-      clip_min: 1.0
-      clip_max: 5.0
-  one_bit_flip_ml100k:
-    base_dataset: movielens_100k
-    description: "Binary rating conversion with random sign-flip noise."
-    noise_type: one_bit_flip
-    citation_url: "https://proceedings.mlr.press/v89/shen19a.html"
-    params:
-      threshold: 3.0
-      flip_probability: 0.15

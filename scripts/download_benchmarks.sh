@@ -5,7 +5,7 @@ set -euo pipefail
 
 CATALOG_PATH="${CATALOG_PATH:-benchmarks/catalog.yaml}"
 OUT_ROOT="${OUT_ROOT:-benchmarks/sources}"
-NOISY_ROOT="${NOISY_ROOT:-benchmarks/noisy_sources}"
+SIM_ROOT="${SIM_ROOT:-benchmarks/simulated}"
 
 DATASETS=(
   "movielens_latest_small"
@@ -22,14 +22,15 @@ PYTHONPATH=src python -m mcbench.cli fetch-dataset \
   --skip-existing \
   --dataset-id "${DATASETS[@]}"
 
-echo "Generating noisy benchmarks in ${NOISY_ROOT}"
-for bench in gaussian_noise_ml100k sparse_corruption_ml100k one_bit_flip_ml100k; do
-  PYTHONPATH=src python -m mcbench.cli make-noisy \
+echo "Generating synthetic noisy benchmarks in ${SIM_ROOT}"
+for preset in sim_lr_gaussian_low sim_lr_gaussian_medium sim_lr_gaussian_high sim_orthogonal_student_t sim_block_sparse_corrupt; do
+  if ! PYTHONPATH=src python -m mcbench.cli generate-simulated \
     --catalog-path "${CATALOG_PATH}" \
-    --source-root "${OUT_ROOT}" \
-    --output-root "${NOISY_ROOT}" \
-    --benchmark-id "${bench}" \
-    --seed 42
+    --output-root "${SIM_ROOT}" \
+    --preset-id "${preset}" \
+    --seed 42; then
+    echo "warning: failed to generate synthetic benchmark ${preset}; continuing"
+  fi
 done
 
 echo "Done."
