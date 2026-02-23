@@ -2,6 +2,9 @@
 
 Modular Python workflow for benchmarking matrix completion algorithms.
 
+Website UI (lightweight static): `/Users/jfeit/matrix-completion-benchmarks/website/README.md`
+Public deploy workflow: `/Users/jfeit/matrix-completion-benchmarks/.github/workflows/deploy-website.yml`
+
 ## Goals
 
 - Accept any algorithm that maps `observed_matrix -> filled_matrix`.
@@ -122,6 +125,37 @@ One-shot bash helper:
 
 ```bash
 scripts/download_benchmarks.sh
+```
+
+## Synthetic Noise Sweep (Global Mean vs SoftImpute)
+
+Run a Gaussian noise-level sweep on simulated low-rank data:
+
+```bash
+PYTHONPATH=src python scripts/run_synthetic_noise_sweep.py \
+  --noise-levels 0.05,0.1,0.2,0.35,0.5 \
+  --algorithms global_mean soft_impute
+```
+
+This writes:
+- `benchmarks/reports/noise_sweep/noise_sweep_results.csv`
+
+Plot normalized RMSE against noise level:
+
+```bash
+PYTHONPATH=src python scripts/plot_noise_sweep.py \
+  --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
+  --metric nrmse \
+  --output-path benchmarks/reports/noise_sweep/nrmse_vs_noise.png
+```
+
+For RMSE instead:
+
+```bash
+PYTHONPATH=src python scripts/plot_noise_sweep.py \
+  --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
+  --metric rmse \
+  --output-path benchmarks/reports/noise_sweep/rmse_vs_noise.png
 ```
 
 ## Workflow

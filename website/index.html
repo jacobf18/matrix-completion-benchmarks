@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Matrix Completion Benchmarks</title>
+    <meta
+      name="description"
+      content="Lightweight dashboard for matrix completion benchmark workflows, datasets, and noise-sweep results."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__bg"></div>
+      <div class="container hero__content">
+        <p class="eyebrow">Matrix Completion Benchmarks</p>
+        <h1>Test Matrix Completion Algorithms Fast, Compare Results Clearly</h1>
+        <p class="lede">
+          This repository’s benchmark workflow: datasets, synthetic noise sweeps,
+          and metric comparisons across methods.
+        </p>
+        <div class="hero__cta">
+          <a class="btn btn--solid" href="#explorer">Open Result Explorer</a>
+          <a class="btn btn--ghost" href="#quickstart">Quickstart</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <section class="panel" id="quickstart">
+        <h2>Quickstart</h2>
+        <p>Run sweep with `global_mean` + `soft_impute`:</p>
+        <pre><code>PYTHONPATH=src python scripts/run_synthetic_noise_sweep.py \
+  --noise-levels 0.05,0.1,0.2,0.35,0.5 \
+  --algorithms global_mean soft_impute</code></pre>
+        <p>Plot NRMSE:</p>
+        <pre><code>PYTHONPATH=src python scripts/plot_noise_sweep.py \
+  --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
+  --metric nrmse \
+  --output-path benchmarks/reports/noise_sweep/nrmse_vs_noise.png</code></pre>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h3>Data Sources</h3>
+          <ul class="list">
+            <li>MovieLens 100K / 1M / latest-small</li>
+            <li>Proposition 99 smoking panel</li>
+            <li>Basque GDP panel</li>
+          </ul>
+        </article>
+        <article class="panel">
+          <h3>Synthetic Noise Presets</h3>
+          <ul class="list">
+            <li><code>sim_lr_gaussian_low/medium/high</code></li>
+            <li><code>sim_orthogonal_student_t</code></li>
+            <li><code>sim_block_sparse_corrupt</code></li>
+          </ul>
+        </article>
+        <article class="panel">
+          <h3>Methods</h3>
+          <ul class="list">
+            <li><code>global_mean</code></li>
+            <li><code>soft_impute</code> (<code>fancyimpute</code>)</li>
+            <li><code>nuclear_norm_minimization</code></li>
+            <li><code>hyperimpute</code> / <code>missforest</code> / <code>forest_diffusion</code></li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="panel" id="explorer">
+        <h2>Noise Sweep Explorer</h2>
+        <p class="hint">
+          Upload your <code>noise_sweep_results.csv</code> from
+          <code>benchmarks/reports/noise_sweep/noise_sweep_results.csv</code>.
+        </p>
+        <div class="controls">
+          <label class="control">
+            <span>Results CSV</span>
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+          </label>
+          <label class="control">
+            <span>Metric</span>
+            <select id="metricSelect">
+              <option value="nrmse">Normalized RMSE</option>
+              <option value="rmse">RMSE</option>
+            </select>
+          </label>
+        </div>
+        <div class="chart-wrap">
+          <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="Noise sweep line chart"></svg>
+        </div>
+        <div id="legend" class="legend"></div>
+        <div class="table-wrap">
+          <table id="resultsTable">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>Noise Sigma</th>
+                <th>RMSE</th>
+                <th>NRMSE</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <p>
+          Static site for <code>matrix-completion-benchmarks</code>. Serve locally with
+          <code>python -m http.server -d website 8080</code>.
+        </p>
+      </div>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
+
