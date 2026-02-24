@@ -163,6 +163,9 @@ def main() -> None:
         print("synthetic_noisy_benchmarks:")
         for bench_id, spec in sorted(catalog.synthetic_noisy_benchmarks.items()):
             print(f"  - {bench_id} (dgp={spec.dgp_type}, noise_type={spec.noise_type})")
+        print("hankel_benchmarks:")
+        for bench_id, spec in sorted(catalog.hankel_benchmarks.items()):
+            print(f"  - {bench_id} (signal_model={spec.signal_model}, mask_type={spec.mask_type})")
         return
 
     if args.command == "fetch-dataset":
@@ -179,7 +182,15 @@ def main() -> None:
                 print(f"warning: unknown dataset_id '{dataset_id}'. Known: {known}")
                 failed_datasets.append(dataset_id)
                 continue
-            downloader = build_downloader(spec)
+            try:
+                downloader = build_downloader(spec)
+            except Exception as exc:
+                print(
+                    "warning: "
+                    f"no downloader available for dataset '{dataset_id}': {exc}"
+                )
+                failed_datasets.append(dataset_id)
+                continue
             if args.skip_existing and downloader.is_ready(output_root=output_root):
                 output_dir = output_root / dataset_id
                 downloaded_dirs.append(output_dir)

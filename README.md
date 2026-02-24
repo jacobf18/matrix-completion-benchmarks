@@ -52,6 +52,12 @@ Install imputation extras for `soft_impute`, `nuclear_norm_minimization`, `hyper
 pip install -e '.[impute]'
 ```
 
+Install tabular evaluation extras (downstream models + xgboost):
+
+```bash
+pip install -e '.[tabular]'
+```
+
 ## Benchmark Catalog
 
 The repository includes `/Users/jfeit/matrix-completion-benchmarks/benchmarks/catalog.yaml` with:
@@ -69,6 +75,10 @@ The repository includes `/Users/jfeit/matrix-completion-benchmarks/benchmarks/ca
   - `sim_lr_gaussian_high`
   - `sim_orthogonal_student_t`
   - `sim_block_sparse_corrupt`
+
+Nuclear-norm-focused benchmark index:
+
+- `/Users/jfeit/matrix-completion-benchmarks/benchmarks/nnm_catalog.yaml`
 
 List catalog entries:
 
@@ -156,6 +166,39 @@ PYTHONPATH=src python scripts/plot_noise_sweep.py \
   --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
   --metric rmse \
   --output-path benchmarks/reports/noise_sweep/rmse_vs_noise.png
+```
+
+## Hankel Matrix Completion Benchmarks
+
+Hankel benchmarks target time-series recovery via low-rank structure in the trajectory (Hankel) matrix.
+
+List Hankel presets:
+
+```bash
+PYTHONPATH=src python -m mcbench.cli list-datasets
+```
+
+Run Hankel benchmark presets with multiple methods:
+
+```bash
+PYTHONPATH=src python scripts/run_hankel_benchmarks.py \
+  --preset-ids hankel_gaussian_sigma_0p01 hankel_gaussian_sigma_0p05 hankel_gaussian_sigma_0p10 \
+  --algorithms global_mean soft_impute cadzow \
+  --output-dir benchmarks/reports/hankel
+```
+
+This writes:
+
+- `benchmarks/reports/hankel/hankel_results.csv`
+
+Plot quality vs noise level:
+
+```bash
+PYTHONPATH=src python scripts/plot_hankel_results.py \
+  --results-csv benchmarks/reports/hankel/hankel_results.csv \
+  --metric nrmse_missing \
+  --x-axis noise_sigma \
+  --output-path benchmarks/reports/hankel/nrmse_missing_vs_noise.png
 ```
 
 ## Workflow
@@ -277,6 +320,12 @@ List all available metrics:
 mcbench list-metrics
 ```
 
+Tabular downstream metrics in registry:
+
+- `downstream_accuracy_linear`
+- `downstream_accuracy_random_forest`
+- `downstream_accuracy_xgboost`
+
 ## Add Your Own Algorithm and Metric
 
 Create a plugin module that registers implementations (see `examples/custom_plugin.py`), then load it with `--plugin`.
@@ -319,3 +368,56 @@ Metric contract (`MatrixMetric`):
 
 - The framework is domain-agnostic and can be used for recommendation matrices, causal panel matrices, tabular missingness, and noisy matrix completion.
 - For real data where full ground truth is not available, create dataset bundles manually with your own `eval_mask` policy.
+
+## Tabular Imputation Benchmarks
+
+Prepare a tabular benchmark bundle with downstream train/test row masks:
+
+```bash
+PYTHONPATH=src python scripts/prepare_tabular_benchmark.py \
+  --input-matrix /path/to/tabular_full.npy \
+  --output-dataset-dir benchmarks/datasets/tabular_demo \
+  --target-col 0 \
+  --missing-fraction 0.2 \
+  --test-fraction 0.2 \
+  --seed 42
+```
+
+Run a single imputation method and evaluate cellwise + downstream metrics:
+
+```bash
+PYTHONPATH=src python -m mcbench.cli run-algorithm \
+  --dataset-dir benchmarks/datasets/tabular_demo \
+  --algorithm soft_impute \
+  --output-dir benchmarks/runs/tabular_demo/soft_impute
+
+PYTHONPATH=src python scripts/evaluate_tabular_imputation.py \
+  --dataset-dir benchmarks/datasets/tabular_demo \
+  --prediction-path benchmarks/runs/tabular_demo/soft_impute/prediction.npy \
+  --task classification \
+  --output-path benchmarks/reports/tabular_demo/soft_impute_eval.json
+```
+
+Multiple-imputation benchmark (Gaussian posterior-style baseline):
+
+```bash
+PYTHONPATH=src python scripts/generate_multiple_imputations.py \
+  --dataset-dir benchmarks/datasets/tabular_demo \
+  --num-imputations 5 \
+  --seed 42 \
+  --output-dir benchmarks/runs/tabular_demo/mi_gaussian
+```
+
+Evaluate multiple imputations:
+
+```bash
+PYTHONPATH=src python scripts/evaluate_tabular_imputation.py \
+  --dataset-dir benchmarks/datasets/tabular_demo \
+  --prediction-path benchmarks/runs/tabular_demo/mi_gaussian/prediction_000.npy \
+  --prediction-path benchmarks/runs/tabular_demo/mi_gaussian/prediction_001.npy \
+  --prediction-path benchmarks/runs/tabular_demo/mi_gaussian/prediction_002.npy \
+  --prediction-path benchmarks/runs/tabular_demo/mi_gaussian/prediction_003.npy \
+  --prediction-path benchmarks/runs/tabular_demo/mi_gaussian/prediction_004.npy \
+  --task classification \
+  --output-path benchmarks/reports/tabular_demo/mi_gaussian_eval.json
+```

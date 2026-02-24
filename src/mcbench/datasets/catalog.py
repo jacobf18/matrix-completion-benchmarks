@@ -37,11 +37,21 @@ class SyntheticNoisyBenchmarkSpec:
 
 
 @dataclass(frozen=True)
+class HankelBenchmarkSpec:
+    benchmark_id: str
+    description: str
+    signal_model: str
+    mask_type: str
+    params: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class BenchmarkCatalog:
     version: int
     datasets: dict[str, DatasetSpec]
     noisy_benchmarks: dict[str, NoisyBenchmarkSpec]
     synthetic_noisy_benchmarks: dict[str, SyntheticNoisyBenchmarkSpec]
+    hankel_benchmarks: dict[str, HankelBenchmarkSpec]
 
 
 def load_catalog(path: Path) -> BenchmarkCatalog:
@@ -52,10 +62,13 @@ def load_catalog(path: Path) -> BenchmarkCatalog:
     raw_datasets = payload.get("datasets", {})
     raw_noisy = payload.get("noisy_benchmarks", {})
     raw_synth = payload.get("synthetic_noisy_benchmarks", {})
+    raw_hankel = payload.get("hankel_benchmarks", {})
     if not isinstance(raw_datasets, dict) or not isinstance(raw_noisy, dict):
         raise ValueError("Catalog must contain mapping objects for datasets and noisy_benchmarks.")
     if not isinstance(raw_synth, dict):
         raise ValueError("Catalog synthetic_noisy_benchmarks must be a mapping.")
+    if not isinstance(raw_hankel, dict):
+        raise ValueError("Catalog hankel_benchmarks must be a mapping.")
 
     datasets: dict[str, DatasetSpec] = {}
     for dataset_id, value in raw_datasets.items():
@@ -95,9 +108,22 @@ def load_catalog(path: Path) -> BenchmarkCatalog:
             params=dict(value.get("params", {})),
         )
 
+    hankel_benchmarks: dict[str, HankelBenchmarkSpec] = {}
+    for benchmark_id, value in raw_hankel.items():
+        if not isinstance(value, dict):
+            raise ValueError(f"Hankel benchmark entry '{benchmark_id}' must be a mapping.")
+        hankel_benchmarks[benchmark_id] = HankelBenchmarkSpec(
+            benchmark_id=benchmark_id,
+            description=str(value["description"]),
+            signal_model=str(value["signal_model"]),
+            mask_type=str(value["mask_type"]),
+            params=dict(value.get("params", {})),
+        )
+
     return BenchmarkCatalog(
         version=int(payload.get("version", 1)),
         datasets=datasets,
         noisy_benchmarks=noisy_benchmarks,
         synthetic_noisy_benchmarks=synthetic_noisy_benchmarks,
+        hankel_benchmarks=hankel_benchmarks,
     )

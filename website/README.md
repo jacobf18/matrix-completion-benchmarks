@@ -41,11 +41,26 @@ If you want a URL independent of GitHub branding (for example `benchmarks.yourdo
 
 ## What It Includes
 
-- Project quickstart commands
+- Project quickstart commands across tracks
 - Benchmark and method summary cards
-- CSV-based result explorer for noise sweeps
-- Line chart with metric toggle (`RMSE` / `NRMSE`)
+- NNM benchmark catalog pointer (`benchmarks/nnm_catalog.yaml`)
+- CSV-based result explorer for noise sweep and Hankel outputs
+- Generic line chart with selectable x-axis and metric columns
+- JSON-based tabular evaluation explorer (`*_eval.json`) for downstream model metrics
+- Demo-data buttons that auto-load files from `website/data/` when present
 
 Upload:
 
-`benchmarks/reports/noise_sweep/noise_sweep_results.csv`
+- `benchmarks/reports/noise_sweep/noise_sweep_results.csv`
+- `benchmarks/reports/hankel/hankel_results.csv`
+- `benchmarks/reports/tabular_demo/*_eval.json`
+
+## Demo Data Buttons
+
+You can place optional sample files in:
+
+`/Users/jfeit/matrix-completion-benchmarks/website/data/`
+
+See:
+
+`/Users/jfeit/matrix-completion-benchmarks/website/data/README.md`

@@ -7,4 +7,4 @@ METRIC_REGISTRY: Registry[type[MatrixMetric]] = Registry()
 
 # Import built-ins for side-effect registration.
 from . import common  # noqa: F401,E402
-
+from . import tabular  # noqa: F401,E402

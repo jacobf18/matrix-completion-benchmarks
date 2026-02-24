@@ -132,6 +132,17 @@ class MovieLensDownloader(DatasetDownloader):
                     row_ids = np.array(row_ids, dtype=np.int64)
                     col_ids = np.array(col_ids, dtype=np.int64)
                     values = np.array(values, dtype=np.float64)
+            elif self.spec.dataset_id == "movielens_20m":
+                with zf.open("ml-20m/ratings.csv", "r") as fh:
+                    reader = csv.DictReader(io.TextIOWrapper(fh, encoding="utf-8"))
+                    row_ids, col_ids, values = [], [], []
+                    for row in reader:
+                        row_ids.append(int(row["userId"]))
+                        col_ids.append(int(row["movieId"]))
+                        values.append(float(row["rating"]))
+                    row_ids = np.array(row_ids, dtype=np.int64)
+                    col_ids = np.array(col_ids, dtype=np.int64)
+                    values = np.array(values, dtype=np.float64)
             else:
                 raise ValueError(f"Unsupported MovieLens dataset: {self.spec.dataset_id}")
 
@@ -188,9 +199,42 @@ class RDatasetsPanelDownloader(DatasetDownloader):
         )
 
 
+class MovieTweetingsDownloader(DatasetDownloader):
+    def fetch(self, output_root: Path) -> Path:
+        raw_dir = output_root / self.spec.dataset_id / "raw"
+        raw_dat = _download_url(self._candidate_urls(), raw_dir / "ratings.dat")
+
+        row_ids: list[int] = []
+        col_ids: list[int] = []
+        values: list[float] = []
+        with raw_dat.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("::")
+                if len(parts) < 3:
+                    continue
+                row_ids.append(int(parts[0]))
+                col_ids.append(int(parts[1]))
+                values.append(float(parts[2]))
+
+        if not row_ids:
+            raise ValueError("MovieTweetings ratings.dat is empty or malformed.")
+
+        matrix, users, items = _dense_from_triplets(
+            row_ids=np.array(row_ids, dtype=np.int64),
+            col_ids=np.array(col_ids, dtype=np.int64),
+            values=np.array(values, dtype=np.float64),
+        )
+        return self._write_outputs(output_root / self.spec.dataset_id, matrix, users, items, raw_dat)
+
+
 def build_downloader(spec: DatasetSpec) -> DatasetDownloader:
     if spec.dataset_id.startswith("movielens_"):
         return MovieLensDownloader(spec)
+    if spec.dataset_id == "movietweetings":
+        return MovieTweetingsDownloader(spec)
     if spec.dataset_id in {"prop99_smoking", "basque_gdpcap"}:
         return RDatasetsPanelDownloader(spec)
     raise ValueError(f"No downloader implemented for '{spec.dataset_id}'.")

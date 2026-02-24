@@ -17,6 +17,10 @@ impute = [
   "ForestDiffusion>=1.0.6",
   "pandas>=2.0",
 ]
+tabular = [
+  "scikit-learn>=1.3",
+  "xgboost>=2.0",
+]
 
 [project.scripts]
 mcbench = "mcbench.cli:main"

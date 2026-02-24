@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Matrix Completion Benchmarks</title>
+    <title>Matrix Completion Benchmarks Hub</title>
     <meta
       name="description"
-      content="Lightweight dashboard for matrix completion benchmark workflows, datasets, and noise-sweep results."
+      content="Lightweight dashboard for matrix completion benchmarks, including noisy synthetic, Hankel, tabular downstream metrics, and NNM benchmark catalog."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,10 +21,10 @@
       <div class="hero__bg"></div>
       <div class="container hero__content">
         <p class="eyebrow">Matrix Completion Benchmarks</p>
-        <h1>Test Matrix Completion Algorithms Fast, Compare Results Clearly</h1>
+        <h1>Matrix Completion Benchmark Hub</h1>
         <p class="lede">
-          This repository’s benchmark workflow: datasets, synthetic noise sweeps,
-          and metric comparisons across methods.
+          Includes synthetic/noisy benchmarks, Hankel-structured recovery, tabular missing-data downstream
+          evaluation, and a nuclear-norm benchmark index.
         </p>
         <div class="hero__cta">
           <a class="btn btn--solid" href="#explorer">Open Result Explorer</a>
@@ -36,76 +36,133 @@
     <main class="container stack">
       <section class="panel" id="quickstart">
         <h2>Quickstart</h2>
-        <p>Run sweep with `global_mean` + `soft_impute`:</p>
+        <p>1) Synthetic noise sweep (`global_mean` + `soft_impute`):</p>
         <pre><code>PYTHONPATH=src python scripts/run_synthetic_noise_sweep.py \
   --noise-levels 0.05,0.1,0.2,0.35,0.5 \
   --algorithms global_mean soft_impute</code></pre>
-        <p>Plot NRMSE:</p>
-        <pre><code>PYTHONPATH=src python scripts/plot_noise_sweep.py \
-  --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
-  --metric nrmse \
-  --output-path benchmarks/reports/noise_sweep/nrmse_vs_noise.png</code></pre>
+        <p>2) Hankel benchmark presets:</p>
+        <pre><code>PYTHONPATH=src python scripts/run_hankel_benchmarks.py \
+  --preset-ids hankel_gaussian_sigma_0p01 hankel_gaussian_sigma_0p05 hankel_gaussian_sigma_0p10 \
+  --algorithms global_mean soft_impute cadzow \
+  --output-dir benchmarks/reports/hankel</code></pre>
+        <p>3) Tabular downstream + multiple imputation:</p>
+        <pre><code>PYTHONPATH=src python scripts/prepare_tabular_benchmark.py \
+  --input-matrix /path/to/tabular_full.npy \
+  --output-dataset-dir benchmarks/datasets/tabular_demo \
+  --target-col 0</code></pre>
       </section>
 
       <section class="grid">
         <article class="panel">
-          <h3>Data Sources</h3>
+          <h3>Benchmark Tracks</h3>
           <ul class="list">
-            <li>MovieLens 100K / 1M / latest-small</li>
-            <li>Proposition 99 smoking panel</li>
-            <li>Basque GDP panel</li>
+            <li>Recommendation + causal panel benchmarks</li>
+            <li>Synthetic noisy matrix completion sweeps</li>
+            <li>Hankel-structured matrix completion</li>
+            <li>Tabular imputation with downstream tasks</li>
           </ul>
         </article>
         <article class="panel">
-          <h3>Synthetic Noise Presets</h3>
+          <h3>Key Methods</h3>
           <ul class="list">
-            <li><code>sim_lr_gaussian_low/medium/high</code></li>
-            <li><code>sim_orthogonal_student_t</code></li>
-            <li><code>sim_block_sparse_corrupt</code></li>
+            <li><code>soft_impute</code>, <code>nuclear_norm_minimization</code></li>
+            <li><code>hyperimpute</code>, <code>missforest</code>, <code>forest_diffusion</code></li>
+            <li><code>cadzow</code> (Hankel structured baseline)</li>
           </ul>
         </article>
         <article class="panel">
-          <h3>Methods</h3>
-          <ul class="list">
-            <li><code>global_mean</code></li>
-            <li><code>soft_impute</code> (<code>fancyimpute</code>)</li>
-            <li><code>nuclear_norm_minimization</code></li>
-            <li><code>hyperimpute</code> / <code>missforest</code> / <code>forest_diffusion</code></li>
-          </ul>
+          <h3>NNM Catalog</h3>
+          <p class="hint">Nuclear norm benchmark index:</p>
+          <pre><code>benchmarks/nnm_catalog.yaml</code></pre>
+          <p class="hint">Tracks access status + NNM evidence links.</p>
         </article>
       </section>
 
+      <section class="panel">
+        <h2>Plot Scripts</h2>
+        <p>Noise sweep plot:</p>
+        <pre><code>PYTHONPATH=src python scripts/plot_noise_sweep.py \
+  --results-csv benchmarks/reports/noise_sweep/noise_sweep_results.csv \
+  --metric nrmse \
+  --output-path benchmarks/reports/noise_sweep/nrmse_vs_noise.png</code></pre>
+        <p>Hankel benchmark plot:</p>
+        <pre><code>PYTHONPATH=src python scripts/plot_hankel_results.py \
+  --results-csv benchmarks/reports/hankel/hankel_results.csv \
+  --metric nrmse_missing \
+  --x-axis noise_sigma \
+  --output-path benchmarks/reports/hankel/nrmse_missing_vs_noise.png</code></pre>
+      </section>
+
       <section class="panel" id="explorer">
-        <h2>Noise Sweep Explorer</h2>
+        <h2>Result Explorer (CSV)</h2>
         <p class="hint">
-          Upload your <code>noise_sweep_results.csv</code> from
-          <code>benchmarks/reports/noise_sweep/noise_sweep_results.csv</code>.
+          Upload CSV results (for example
+          <code>noise_sweep_results.csv</code> or <code>hankel_results.csv</code>), then choose x-axis and metric.
         </p>
         <div class="controls">
           <label class="control">
             <span>Results CSV</span>
             <input id="csvFile" type="file" accept=".csv,text/csv" />
           </label>
+          <button id="loadDemoCsvBtn" class="btn btn--ghost btn--small" type="button">Load Demo CSV</button>
+          <label class="control">
+            <span>X-axis</span>
+            <select id="xAxisSelect"></select>
+          </label>
           <label class="control">
             <span>Metric</span>
-            <select id="metricSelect">
-              <option value="nrmse">Normalized RMSE</option>
-              <option value="rmse">RMSE</option>
-            </select>
+            <select id="metricSelect"></select>
           </label>
         </div>
         <div class="chart-wrap">
-          <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="Noise sweep line chart"></svg>
+          <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="Benchmark result line chart"></svg>
         </div>
         <div id="legend" class="legend"></div>
         <div class="table-wrap">
           <table id="resultsTable">
             <thead>
               <tr>
-                <th>Algorithm</th>
-                <th>Noise Sigma</th>
-                <th>RMSE</th>
-                <th>NRMSE</th>
+                <th>Series</th>
+                <th>ID</th>
+                <th>X</th>
+                <th>Metric</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="tabular-explorer">
+        <h2>Tabular Eval Explorer (JSON)</h2>
+        <p class="hint">
+          Upload one or more tabular evaluation JSON files (for example
+          <code>soft_impute_eval.json</code>, <code>mi_gaussian_eval.json</code>) to compare downstream metrics.
+        </p>
+        <div class="controls">
+          <label class="control">
+            <span>Evaluation JSON files</span>
+            <input id="jsonFiles" type="file" accept=".json,application/json" multiple />
+          </label>
+          <button id="loadDemoJsonBtn" class="btn btn--ghost btn--small" type="button">Load Demo JSON</button>
+          <label class="control">
+            <span>Downstream Metric</span>
+            <select id="jsonMetricSelect"></select>
+          </label>
+        </div>
+        <p id="demoStatus" class="hint"></p>
+        <div class="chart-wrap">
+          <svg id="jsonChart" viewBox="0 0 900 340" role="img" aria-label="Tabular evaluation bar chart"></svg>
+        </div>
+        <div class="table-wrap">
+          <table id="jsonResultsTable">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Task</th>
+                <th>Target Col</th>
+                <th>Metric</th>
+                <th>Value</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -126,4 +183,3 @@
     <script src="./app.js"></script>
   </body>
 </html>
-

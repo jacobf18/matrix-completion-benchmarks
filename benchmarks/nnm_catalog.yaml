@@ -1,0 +1,116 @@
+version: 1
+last_updated: "2026-02-24"
+description: "Nuclear-norm-minimization-focused benchmark index for matrix completion and related low-rank recovery tasks."
+
+status_legend:
+  open: "Publicly downloadable without manual approval."
+  restricted: "Public landing page exists, but data access has constraints."
+  application_required: "Access commonly requires registration or approval."
+  retired_or_unclear: "Historically used, but current access is unclear/legacy."
+  unverified: "Included from literature but access/parsing pipeline not yet verified."
+
+benchmarks:
+  - benchmark_id: movielens_100k
+    domain: recommender_systems
+    dataset_url: "https://grouplens.org/datasets/movielens/100k/"
+    nnm_evidence:
+      - "https://pubmed.ncbi.nlm.nih.gov/31130828/"
+    access_status: open
+    implemented_downloader: true
+    notes: "Canonical small-scale recommendation benchmark."
+
+  - benchmark_id: movielens_1m
+    domain: recommender_systems
+    dataset_url: "https://grouplens.org/datasets/movielens/1m/"
+    nnm_evidence:
+      - "https://pubmed.ncbi.nlm.nih.gov/31130828/"
+    access_status: open
+    implemented_downloader: true
+    notes: "Common NNM/SoftImpute benchmark."
+
+  - benchmark_id: movielens_20m
+    domain: recommender_systems
+    dataset_url: "https://grouplens.org/datasets/movielens/20m/"
+    nnm_evidence:
+      - "https://icml.cc/2014/icml2014keywords/index/article/matrix_completion_problem.html"
+    access_status: open
+    implemented_downloader: true
+    notes: "Large-scale stress testing for low-rank methods."
+
+  - benchmark_id: netflix_prize
+    domain: recommender_systems
+    dataset_url: "https://www.netflixprize.com/"
+    nnm_evidence:
+      - "https://icml.cc/2014/icml2014keywords/index/article/matrix_completion_problem.html"
+      - "https://www.kdd.org/kdd-cup/view/kdd-cup-2007/Data"
+    access_status: restricted
+    implemented_downloader: false
+    notes: "Historically central in NNM scaling papers; modern access often indirect."
+
+  - benchmark_id: yahoo_music_kdd_2011
+    domain: recommender_systems
+    dataset_url: "https://www.kdd.org/kdd2011/kddcup.shtml"
+    nnm_evidence:
+      - "https://icml.cc/2014/icml2014keywords/index/article/matrix_completion_problem.html"
+    access_status: application_required
+    implemented_downloader: false
+    notes: "Competition dataset; access path can vary over time."
+
+  - benchmark_id: prop99_smoking_panel
+    domain: causal_inference
+    dataset_url: "https://www.nber.org/papers/w25132"
+    nnm_evidence:
+      - "https://www.nber.org/papers/w25132"
+      - "https://github.com/susanathey/MCPanel"
+    access_status: open
+    implemented_downloader: true
+    notes: "MC-NNM benchmark with block-missing counterfactual structure."
+
+  - benchmark_id: basque_panel
+    domain: causal_inference
+    dataset_url: "https://search.r-project.org/CRAN/refmans/Synth/html/basque.html"
+    nnm_evidence:
+      - "https://www.nber.org/papers/w25132"
+      - "https://github.com/susanathey/MCPanel"
+    access_status: open
+    implemented_downloader: true
+    notes: "Standard synthetic-control style panel benchmark."
+
+  - benchmark_id: emac_spectral_signals
+    domain: structured_matrix_completion
+    dataset_url: "https://core.ac.uk/works/17055235/"
+    nnm_evidence:
+      - "https://core.ac.uk/works/17055235/"
+    access_status: unverified
+    implemented_downloader: false
+    notes: "NNM over lifted structured (Hankel) matrices; typically synthetic protocols."
+
+  - benchmark_id: fastmri
+    domain: compressed_sensing_mri
+    dataset_url: "https://fastmri.med.nyu.edu/"
+    nnm_evidence:
+      - "https://pubmed.ncbi.nlm.nih.gov/26728777/"
+      - "https://core.ac.uk/works/17055235/"
+    access_status: application_required
+    implemented_downloader: false
+    notes: "MRI benchmark ecosystem where structured low-rank/NNM variants are used."
+
+  - benchmark_id: quantum_state_tomography
+    domain: quantum_tomography
+    dataset_url: "https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.105.150401"
+    nnm_evidence:
+      - "https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.105.150401"
+    access_status: unverified
+    implemented_downloader: false
+    notes: "Low-rank density matrix recovery via convex/nuclear-norm-like formulations."
+
+  - benchmark_id: phase_transition_synthetic
+    domain: theory_synthetic
+    dataset_url: "https://pubmed.ncbi.nlm.nih.gov/23650360/"
+    nnm_evidence:
+      - "https://pubmed.ncbi.nlm.nih.gov/23650360/"
+      - "https://people.iith.ac.in/m_vidyasagar/E-Pubs/154.pdf"
+    access_status: open
+    implemented_downloader: false
+    notes: "Synthetic benchmarks for recovery phase transitions under low-rank sampling."
+

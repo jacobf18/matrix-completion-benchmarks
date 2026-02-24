@@ -15,6 +15,46 @@ datasets:
     description: "MovieLens latest-small ratings matrix (users x items)."
     source_url: "https://files.grouplens.org/datasets/movielens/ml-latest-small.zip"
     citation_url: "https://grouplens.org/datasets/movielens/"
+  movielens_20m:
+    kind: recommender
+    description: "MovieLens 20M ratings matrix (users x items)."
+    source_url: "https://files.grouplens.org/datasets/movielens/ml-20m.zip"
+    citation_url: "https://grouplens.org/datasets/movielens/20m/"
+  movietweetings:
+    kind: recommender
+    description: "MovieTweetings live social movie-rating dataset from Twitter."
+    source_url: "https://raw.githubusercontent.com/sidooms/MovieTweetings/master/latest/ratings.dat"
+    citation_url: "https://github.com/sidooms/MovieTweetings"
+  yelp_open_dataset:
+    kind: recommender
+    description: "Yelp Open Dataset (business/review/user JSON files)."
+    source_url: "https://business.yelp.com/data/resources/open-dataset/"
+    citation_url: "https://business.yelp.com/data/resources/open-dataset/"
+  bookcrossing:
+    kind: recommender
+    description: "Book-Crossing recommendation dataset."
+    source_url: "http://www2.informatik.uni-freiburg.de/~cziegler/BX/BX-CSV-Dump.zip"
+    citation_url: "http://www2.informatik.uni-freiburg.de/~cziegler/BX/"
+  netflix_prize:
+    kind: recommender
+    description: "Netflix Prize recommendation dataset."
+    source_url: "https://www.kaggle.com/datasets/netflix-inc/netflix-prize-data"
+    citation_url: "https://www.netflixprize.com/"
+  tripadvisor_hotelrec:
+    kind: recommender
+    description: "TripAdvisor-derived large-scale hotel recommendation dataset (HotelRec)."
+    source_url: "https://github.com/Diego999/HotelRec"
+    citation_url: "https://github.com/Diego999/HotelRec"
+  amazon_electronics_5core:
+    kind: recommender
+    description: "Amazon Electronics ratings/reviews (5-core subset)."
+    source_url: "https://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Electronics_5.json.gz"
+    citation_url: "https://cseweb.ucsd.edu/~jmcauley/datasets/amazon_v2/"
+  amazon_books_5core:
+    kind: recommender
+    description: "Amazon Books ratings/reviews (5-core subset)."
+    source_url: "https://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Books_5.json.gz"
+    citation_url: "https://cseweb.ucsd.edu/~jmcauley/datasets/amazon_v2/"
   prop99_smoking:
     kind: causal_panel
     description: "California Proposition 99 cigarette sales panel benchmark."
@@ -29,6 +69,26 @@ datasets:
     mirror_urls:
       - "https://vincentarelbundock.github.io/Rdatasets/csv/Synth/basque.csv"
     citation_url: "https://search.r-project.org/CRAN/refmans/Synth/html/basque.html"
+  fastmri:
+    kind: compressed_sensing
+    description: "fastMRI raw k-space and DICOM benchmark for accelerated MRI."
+    source_url: "https://fastmri.med.nyu.edu/"
+    citation_url: "https://fastmri.med.nyu.edu/"
+  acdc_cardiac_cine:
+    kind: compressed_sensing
+    description: "ACDC cardiac cine MRI benchmark."
+    source_url: "https://www.creatis.insa-lyon.fr/Challenge/acdc/"
+    citation_url: "https://www.creatis.insa-lyon.fr/Challenge/acdc/"
+  uci_repository:
+    kind: tabular
+    description: "UCI Machine Learning Repository collection for tabular imputation benchmarks."
+    source_url: "https://archive.ics.uci.edu/"
+    citation_url: "https://archive.ics.uci.edu/"
+  proteomics_benchmark_collection:
+    kind: tabular
+    description: "Proteomics benchmark collection (for MCAR/MNAR imputation studies)."
+    source_url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7815892/"
+    citation_url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7815892/"
 
 noisy_benchmarks: {}
 
@@ -97,3 +157,45 @@ synthetic_noisy_benchmarks:
       group_noise: 0.08
       corruption_fraction: 0.06
       corruption_scale: 2.5
+
+hankel_benchmarks:
+  hankel_gaussian_sigma_0p01:
+    description: "Spectrally sparse signal, uniform missing samples, light Gaussian noise."
+    signal_model: spectrally_sparse_complex
+    mask_type: uniform_random
+    params:
+      n: 256
+      rank: 8
+      window_length: 128
+      noise_sigma: 0.01
+      missing_fraction: 0.5
+  hankel_gaussian_sigma_0p05:
+    description: "Spectrally sparse signal, uniform missing samples, medium Gaussian noise."
+    signal_model: spectrally_sparse_complex
+    mask_type: uniform_random
+    params:
+      n: 256
+      rank: 8
+      window_length: 128
+      noise_sigma: 0.05
+      missing_fraction: 0.5
+  hankel_gaussian_sigma_0p10:
+    description: "Spectrally sparse signal, uniform missing samples, higher Gaussian noise."
+    signal_model: spectrally_sparse_complex
+    mask_type: uniform_random
+    params:
+      n: 256
+      rank: 8
+      window_length: 128
+      noise_sigma: 0.10
+      missing_fraction: 0.5
+  hankel_damped_block_missing:
+    description: "Damped spectral signal with contiguous missing block and moderate noise."
+    signal_model: damped_spectrally_sparse
+    mask_type: contiguous_block
+    params:
+      n: 320
+      rank: 10
+      window_length: 160
+      noise_sigma: 0.04
+      missing_fraction: 0.4
