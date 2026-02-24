@@ -3,6 +3,7 @@
 Optional demo files for the website's "Load Demo" buttons.
 
 Supported CSV names:
+- `synthetic_denoise_results.csv`
 - `noise_sweep_results.csv`
 - `hankel_results.csv`
 

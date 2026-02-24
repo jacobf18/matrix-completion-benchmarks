@@ -168,6 +168,28 @@ PYTHONPATH=src python scripts/plot_noise_sweep.py \
   --output-path benchmarks/reports/noise_sweep/rmse_vs_noise.png
 ```
 
+## End-to-End Synthetic Denoising Benchmark
+
+Run implemented algorithms on the synthetic noisy matrix-completion presets (denoising target = clean ground truth):
+
+```bash
+scripts/run_synthetic_denoise_e2e.sh
+```
+
+Outputs:
+
+- `benchmarks/reports/synthetic_denoise/synthetic_denoise_detailed.csv`
+- `benchmarks/reports/synthetic_denoise/synthetic_denoise_summary.csv`
+- `benchmarks/reports/synthetic_denoise/synthetic_denoise_summary.json`
+- `benchmarks/reports/synthetic_denoise/nrmse_vs_noise.png`
+- `benchmarks/reports/synthetic_denoise/rmse_vs_noise.png`
+
+Publish summary for website demo loading:
+
+```bash
+scripts/publish_synthetic_denoise_to_website.sh
+```
+
 ## Hankel Matrix Completion Benchmarks
 
 Hankel benchmarks target time-series recovery via low-rank structure in the trajectory (Hankel) matrix.
@@ -421,3 +443,25 @@ PYTHONPATH=src python scripts/evaluate_tabular_imputation.py \
   --task classification \
   --output-path benchmarks/reports/tabular_demo/mi_gaussian_eval.json
 ```
+
+## Missingness Pattern Generation
+
+Generate reusable masks/observed matrices independently of algorithms:
+
+```bash
+PYTHONPATH=src python scripts/generate_missingness_pattern.py \
+  --input-matrix /path/to/full_matrix.npy \
+  --output-dir benchmarks/datasets/missingness_demo \
+  --pattern mar_logistic \
+  --missing-fraction 0.3 \
+  --feature-col 0 \
+  --seed 42
+```
+
+Supported patterns:
+
+- `mcar`
+- `mar_logistic`
+- `mnar_self_logistic`
+- `block`
+- `bursty`

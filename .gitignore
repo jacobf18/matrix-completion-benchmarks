@@ -213,3 +213,5 @@ __marimo__/
 benchmarks/sources/
 benchmarks/noisy_sources/
 benchmarks/simulated/
+
+**/*.png

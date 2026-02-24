@@ -1,0 +1,28 @@
+{
+  "algorithms": [
+    "global_mean",
+    "row_mean",
+    "soft_impute",
+    "nuclear_norm_minimization",
+    "hyperimpute",
+    "missforest",
+    "forest_diffusion"
+  ],
+  "catalog_path": "benchmarks/catalog.yaml",
+  "detailed_csv": "benchmarks/reports/synthetic_denoise/synthetic_denoise_detailed.csv",
+  "num_detailed_rows": 105,
+  "num_summary_rows": 15,
+  "preset_ids": [
+    "sim_block_sparse_corrupt",
+    "sim_lr_gaussian_high",
+    "sim_lr_gaussian_low",
+    "sim_lr_gaussian_medium",
+    "sim_orthogonal_student_t"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "summary_csv": "benchmarks/reports/synthetic_denoise/synthetic_denoise_summary.csv"
+}

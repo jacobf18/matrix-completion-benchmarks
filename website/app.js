@@ -22,46 +22,60 @@ const loadDemoCsvBtn = document.getElementById("loadDemoCsvBtn");
 const loadDemoJsonBtn = document.getElementById("loadDemoJsonBtn");
 const demoStatus = document.getElementById("demoStatus");
 
-csvFile.addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) {
-    return;
-  }
-  const text = await file.text();
-  const parsed = parseCsv(text);
-  state.rows = parsed.rows;
-  state.headers = parsed.headers;
-  state.numericColumns = parsed.numericColumns;
-  populateSelectors();
-  render();
-});
-
-metricSelect.addEventListener("change", () => render());
-xAxisSelect.addEventListener("change", () => render());
-
-jsonFiles.addEventListener("change", async (event) => {
-  const files = Array.from(event.target.files ?? []);
-  if (files.length === 0) {
-    return;
-  }
-  const entries = [];
-  for (const file of files) {
-    try {
-      const text = await file.text();
-      const payload = JSON.parse(text);
-      entries.push(normalizeEvalJson(payload, file.name));
-    } catch {
-      // Ignore malformed file and continue.
+if (csvFile) {
+  csvFile.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
     }
-  }
-  state.jsonEvalEntries = entries;
-  populateJsonMetricSelector();
-  renderJsonExplorer();
-});
+    const text = await file.text();
+    const parsed = parseCsv(text);
+    state.rows = parsed.rows;
+    state.headers = parsed.headers;
+    state.numericColumns = parsed.numericColumns;
+    populateSelectors();
+    render();
+  });
+}
 
-jsonMetricSelect.addEventListener("change", () => renderJsonExplorer());
-loadDemoCsvBtn.addEventListener("click", () => loadDemoCsv());
-loadDemoJsonBtn.addEventListener("click", () => loadDemoJson());
+if (metricSelect) {
+  metricSelect.addEventListener("change", () => render());
+}
+if (xAxisSelect) {
+  xAxisSelect.addEventListener("change", () => render());
+}
+
+if (jsonFiles) {
+  jsonFiles.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
+    const entries = [];
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const payload = JSON.parse(text);
+        entries.push(normalizeEvalJson(payload, file.name));
+      } catch {
+        // Ignore malformed file and continue.
+      }
+    }
+    state.jsonEvalEntries = entries;
+    populateJsonMetricSelector();
+    renderJsonExplorer();
+  });
+}
+
+if (jsonMetricSelect) {
+  jsonMetricSelect.addEventListener("change", () => renderJsonExplorer());
+}
+if (loadDemoCsvBtn) {
+  loadDemoCsvBtn.addEventListener("click", () => loadDemoCsv());
+}
+if (loadDemoJsonBtn) {
+  loadDemoJsonBtn.addEventListener("click", () => loadDemoJson());
+}
 
 function parseCsv(text) {
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -130,11 +144,17 @@ function splitCsvLine(line) {
 }
 
 function render() {
+  if (!tableBody || !chart || !legend) {
+    return;
+  }
   renderTable();
   renderChart();
 }
 
 function populateSelectors() {
+  if (!xAxisSelect || !metricSelect) {
+    return;
+  }
   xAxisSelect.innerHTML = "";
   metricSelect.innerHTML = "";
   if (state.numericColumns.length === 0) {
@@ -349,6 +369,9 @@ function populateJsonMetricSelector() {
 }
 
 function renderJsonExplorer() {
+  if (!jsonTableBody || !jsonChart) {
+    return;
+  }
   renderJsonTable();
   renderJsonChart();
 }
@@ -507,6 +530,7 @@ function safeDen(v) {
 
 async function loadDemoCsv() {
   const candidates = [
+    "./data/synthetic_denoise_results.csv",
     "./data/noise_sweep_results.csv",
     "./data/hankel_results.csv",
   ];
@@ -565,7 +589,9 @@ async function loadDemoJson() {
 }
 
 function setDemoStatus(message) {
-  demoStatus.textContent = message;
+  if (demoStatus) {
+    demoStatus.textContent = message;
+  }
 }
 
 render();
