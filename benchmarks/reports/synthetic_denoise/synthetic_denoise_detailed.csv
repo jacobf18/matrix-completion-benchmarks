@@ -1,106 +1,55 @@
 preset_id,seed,algorithm,status,error,noise_sigma,noise_type,rmse,nrmse,eval_count
-sim_block_sparse_corrupt,0,global_mean,ok,,2.5,sparse_corruption,0.8005903383541075,0.21844319341922283,8064
-sim_block_sparse_corrupt,0,row_mean,ok,,2.5,sparse_corruption,0.7899150998510794,0.21553042633049255,8064
-sim_block_sparse_corrupt,0,soft_impute,ok,,2.5,sparse_corruption,0.4179517753804492,0.11403924845887521,8064
-sim_block_sparse_corrupt,0,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,0,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,0,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,0,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,1,global_mean,ok,,2.5,sparse_corruption,0.9181221473416442,0.21401452589969303,8064
-sim_block_sparse_corrupt,1,row_mean,ok,,2.5,sparse_corruption,0.8591959169663818,0.2002788053386192,8064
-sim_block_sparse_corrupt,1,soft_impute,ok,,2.5,sparse_corruption,0.4878997378402145,0.1137295635257157,8064
-sim_block_sparse_corrupt,1,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,1,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,1,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,1,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,2,global_mean,ok,,2.5,sparse_corruption,1.018571629711776,0.22993292347050373,8064
-sim_block_sparse_corrupt,2,row_mean,ok,,2.5,sparse_corruption,0.992920043284737,0.22414232015231164,8064
-sim_block_sparse_corrupt,2,soft_impute,ok,,2.5,sparse_corruption,0.5032719796660703,0.11360889525084482,8064
-sim_block_sparse_corrupt,2,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,2,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,2,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,2.5,sparse_corruption,nan,nan,8064
-sim_block_sparse_corrupt,2,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,2.5,sparse_corruption,nan,nan,8064
-sim_lr_gaussian_high,0,global_mean,ok,,0.35,gaussian,3.198967774047925,0.11485514126135693,8400
-sim_lr_gaussian_high,0,row_mean,ok,,0.35,gaussian,3.218054567903753,0.11554042994176258,8400
-sim_lr_gaussian_high,0,soft_impute,ok,,0.35,gaussian,0.8104912138491122,0.029099725109120095,8400
-sim_lr_gaussian_high,0,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,0,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,0,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,0,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,1,global_mean,ok,,0.35,gaussian,3.104207528448085,0.11136795959488055,8400
-sim_lr_gaussian_high,1,row_mean,ok,,0.35,gaussian,3.1224885037190298,0.11202381616911784,8400
-sim_lr_gaussian_high,1,soft_impute,ok,,0.35,gaussian,0.7768993121001948,0.027872392681980437,8400
-sim_lr_gaussian_high,1,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,1,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,1,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,1,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,2,global_mean,ok,,0.35,gaussian,3.1829918175796763,0.10832859300446471,8400
-sim_lr_gaussian_high,2,row_mean,ok,,0.35,gaussian,3.203897587175548,0.10904009109675901,8400
-sim_lr_gaussian_high,2,soft_impute,ok,,0.35,gaussian,0.7785795904830204,0.026497847438122314,8400
-sim_lr_gaussian_high,2,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,2,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,2,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_high,2,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.35,gaussian,nan,nan,8400
-sim_lr_gaussian_low,0,global_mean,ok,,0.05,gaussian,3.1989498115125095,0.1148544963378415,8400
-sim_lr_gaussian_low,0,row_mean,ok,,0.05,gaussian,3.2181459486590813,0.11554371085932823,8400
-sim_lr_gaussian_low,0,soft_impute,ok,,0.05,gaussian,0.5977631497743288,0.0214619764428848,8400
-sim_lr_gaussian_low,0,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,0,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,0,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,0,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,1,global_mean,ok,,0.05,gaussian,3.1042186694540304,0.11136835929467143,8400
-sim_lr_gaussian_low,1,row_mean,ok,,0.05,gaussian,3.1217475681627316,0.11199723402847807,8400
-sim_lr_gaussian_low,1,soft_impute,ok,,0.05,gaussian,0.5562492327339366,0.019956250188841836,8400
-sim_lr_gaussian_low,1,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,1,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,1,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,1,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,2,global_mean,ok,,0.05,gaussian,3.1830300088736534,0.10832989279075969,8400
-sim_lr_gaussian_low,2,row_mean,ok,,0.05,gaussian,3.204010333343831,0.10904392825201314,8400
-sim_lr_gaussian_low,2,soft_impute,ok,,0.05,gaussian,0.5611120841970665,0.019096650598709682,8400
-sim_lr_gaussian_low,2,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,2,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,2,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_low,2,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.05,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,0,global_mean,ok,,0.15,gaussian,3.198955454969333,0.11485469895946088,8400
-sim_lr_gaussian_medium,0,row_mean,ok,,0.15,gaussian,3.218080347628711,0.11554135553219078,8400
-sim_lr_gaussian_medium,0,soft_impute,ok,,0.15,gaussian,0.6450715628625955,0.02316052886725883,8400
-sim_lr_gaussian_medium,0,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,0,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,0,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,0,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,1,global_mean,ok,,0.15,gaussian,3.1042149362851545,0.11136822536180878,8400
-sim_lr_gaussian_medium,1,row_mean,ok,,0.15,gaussian,3.121952358483301,0.11200458117905922,8400
-sim_lr_gaussian_medium,1,soft_impute,ok,,0.15,gaussian,0.6062277041313563,0.02174930053492627,8400
-sim_lr_gaussian_medium,1,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,1,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,1,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,1,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,2,global_mean,ok,,0.15,gaussian,3.1830170656479497,0.1083294522865078,8400
-sim_lr_gaussian_medium,2,row_mean,ok,,0.15,gaussian,3.203932901350166,0.10904129296439447,8400
-sim_lr_gaussian_medium,2,soft_impute,ok,,0.15,gaussian,0.608486855093282,0.020708983450698683,8400
-sim_lr_gaussian_medium,2,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,2,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,2,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.15,gaussian,nan,nan,8400
-sim_lr_gaussian_medium,2,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.15,gaussian,nan,nan,8400
-sim_orthogonal_student_t,0,global_mean,ok,,0.2,student_t,0.004394407328474802,0.11471307137460308,10500
-sim_orthogonal_student_t,0,row_mean,ok,,0.2,student_t,0.038861936144321645,1.014464914481675,10500
-sim_orthogonal_student_t,0,soft_impute,ok,,0.2,student_t,0.12241809863607347,3.195642787910852,10500
-sim_orthogonal_student_t,0,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,0,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,0,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,0,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,1,global_mean,ok,,0.2,student_t,0.00412300320958509,0.10448060742776397,10500
-sim_orthogonal_student_t,1,row_mean,ok,,0.2,student_t,0.036904431383852354,0.9351914640272984,10500
-sim_orthogonal_student_t,1,soft_impute,ok,,0.2,student_t,0.11012181442866187,2.7905857642327514,10500
-sim_orthogonal_student_t,1,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,1,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,1,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,1,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,2,global_mean,ok,,0.2,student_t,0.004143541423573719,0.09217498032515045,10500
-sim_orthogonal_student_t,2,row_mean,ok,,0.2,student_t,0.04011999116787903,0.8924876134953562,10500
-sim_orthogonal_student_t,2,soft_impute,ok,,0.2,student_t,0.10874782365038244,2.4191452385026686,10500
-sim_orthogonal_student_t,2,nuclear_norm_minimization,failed,OverflowError: number of elements exceeds INT_MAX,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,2,hyperimpute,failed,ImportError: hyperimpute requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,2,missforest,failed,ImportError: missforest requires optional dependencies 'hyperimpute' and 'pandas'. Install with: pip install hyperimpute pandas,0.2,student_t,nan,nan,10500
-sim_orthogonal_student_t,2,forest_diffusion,failed,ImportError: forest_diffusion requires optional dependency 'ForestDiffusion'. Install with: pip install ForestDiffusion,0.2,student_t,nan,nan,10500
+sim_lr_gaussian_sigma_0p01,0,global_mean,ok,,0.01,gaussian,3.198947650465768,0.11485441874802306,8400
+sim_lr_gaussian_sigma_0p01,0,row_mean,ok,,0.01,gaussian,3.218182027953412,0.1155450062435708,8400
+sim_lr_gaussian_sigma_0p01,0,soft_impute,ok,,0.01,gaussian,0.5915556844133445,0.021239104766372516,8400
+sim_lr_gaussian_sigma_0p01,1,global_mean,ok,,0.01,gaussian,3.1042201681816217,0.11136841306370339,8400
+sim_lr_gaussian_sigma_0p01,1,row_mean,ok,,0.01,gaussian,3.1216774675819243,0.11199471906819292,8400
+sim_lr_gaussian_sigma_0p01,1,soft_impute,ok,,0.01,gaussian,0.5496088551393836,0.019718016985401782,8400
+sim_lr_gaussian_sigma_0p01,2,global_mean,ok,,0.01,gaussian,3.183035245745543,0.10833007102023562,8400
+sim_lr_gaussian_sigma_0p01,2,row_mean,ok,,0.01,gaussian,3.2040524633957297,0.10904536208832406,8400
+sim_lr_gaussian_sigma_0p01,2,soft_impute,ok,,0.01,gaussian,0.5553367192666346,0.0189000942791032,8400
+sim_lr_gaussian_sigma_0p03,0,global_mean,ok,,0.03,gaussian,3.1989487241079826,0.11485445729587254,8400
+sim_lr_gaussian_sigma_0p03,0,row_mean,ok,,0.03,gaussian,3.218163285549822,0.11554433331981415,8400
+sim_lr_gaussian_sigma_0p03,0,soft_impute,ok,,0.03,gaussian,0.5936495418387475,0.02131428223215595,8400
+sim_lr_gaussian_sigma_0p03,1,global_mean,ok,,0.03,gaussian,3.1042194184278236,0.1113683861651955,8400
+sim_lr_gaussian_sigma_0p03,1,row_mean,ok,,0.03,gaussian,3.121711673843692,0.11199594626758069,8400
+sim_lr_gaussian_sigma_0p03,1,soft_impute,ok,,0.03,gaussian,0.5518661416724533,0.019799000422593128,8400
+sim_lr_gaussian_sigma_0p03,2,global_mean,ok,,0.03,gaussian,3.1830326230537898,0.10832998176065728,8400
+sim_lr_gaussian_sigma_0p03,2,row_mean,ok,,0.03,gaussian,3.2040306014509046,0.10904461804816971,8400
+sim_lr_gaussian_sigma_0p03,2,soft_impute,ok,,0.03,gaussian,0.5571901583914305,0.01896317343987881,8400
+sim_lr_gaussian_sigma_0p1,0,global_mean,ok,,0.1,gaussian,3.198952590233852,0.1148545961045334,8400
+sim_lr_gaussian_sigma_0p1,0,row_mean,ok,,0.1,gaussian,3.218108755695483,0.11554237549011236,8400
+sim_lr_gaussian_sigma_0p1,0,soft_impute,ok,,0.1,gaussian,0.6163292854086906,0.02212857150778719,8400
+sim_lr_gaussian_sigma_0p1,1,global_mean,ok,,0.1,gaussian,3.104216800432071,0.11136829224079048,8400
+sim_lr_gaussian_sigma_0p1,1,row_mean,ok,,0.1,gaussian,3.1218446888220424,0.11200071837337539,8400
+sim_lr_gaussian_sigma_0p1,1,soft_impute,ok,,0.1,gaussian,0.5759474938934,0.02066295395551728,8400
+sim_lr_gaussian_sigma_0p1,2,global_mean,ok,,0.1,gaussian,3.1830235106617724,0.10832967163337368,8400
+sim_lr_gaussian_sigma_0p1,2,row_mean,ok,,0.1,gaussian,3.2039666363089583,0.10904244108566856,8400
+sim_lr_gaussian_sigma_0p1,2,soft_impute,ok,,0.1,gaussian,0.5795252116789597,0.019723315166902653,8400
+sim_lr_gaussian_sigma_0p3,0,global_mean,ok,,0.3,gaussian,3.1989645652582666,0.11485502605357256,8400
+sim_lr_gaussian_sigma_0p3,0,row_mean,ok,,0.3,gaussian,3.2180478347761543,0.11554018819680731,8400
+sim_lr_gaussian_sigma_0p3,0,soft_impute,ok,,0.3,gaussian,0.7655957549069198,0.027487806939568163,8400
+sim_lr_gaussian_sigma_0p3,1,global_mean,ok,,0.3,gaussian,3.1042093730947453,0.11136802577426219,8400
+sim_lr_gaussian_sigma_0p3,1,row_mean,ok,,0.3,gaussian,3.122338650031113,0.11201843995012857,8400
+sim_lr_gaussian_sigma_0p3,1,soft_impute,ok,,0.3,gaussian,0.7309695395113996,0.026224595293759995,8400
+sim_lr_gaussian_sigma_0p3,2,global_mean,ok,,0.3,gaussian,3.182998049798057,0.1083288051091408,8400
+sim_lr_gaussian_sigma_0p3,2,row_mean,ok,,0.3,gaussian,3.2038914716124682,0.10903988296227993,8400
+sim_lr_gaussian_sigma_0p3,2,soft_impute,ok,,0.3,gaussian,0.7322535526426363,0.024921206721987398,8400
+sim_lr_gaussian_sigma_1p0,0,global_mean,ok,,1.0,gaussian,3.1990173153850265,0.11485691998426788,8400
+sim_lr_gaussian_sigma_1p0,0,row_mean,ok,,1.0,gaussian,3.2189414463031394,0.11557227225810898,8400
+sim_lr_gaussian_sigma_1p0,0,soft_impute,ok,,1.0,gaussian,1.368254903413104,0.04912556840614862,8400
+sim_lr_gaussian_sigma_1p0,1,global_mean,ok,,1.0,gaussian,3.104183991677446,0.11136711517900386,8400
+sim_lr_gaussian_sigma_1p0,1,row_mean,ok,,1.0,gaussian,3.1253952695617357,0.11212810062109328,8400
+sim_lr_gaussian_sigma_1p0,1,soft_impute,ok,,1.0,gaussian,1.3353139579247726,0.04790633021465309,8400
+sim_lr_gaussian_sigma_1p0,2,global_mean,ok,,1.0,gaussian,3.1829156400188467,0.10832600040968089,8400
+sim_lr_gaussian_sigma_1p0,2,row_mean,ok,,1.0,gaussian,3.2048835494500305,0.10907364691847374,8400
+sim_lr_gaussian_sigma_1p0,2,soft_impute,ok,,1.0,gaussian,1.3471468450845285,0.04584822414321445,8400
+sim_lr_gaussian_sigma_3p0,0,global_mean,ok,,3.0,gaussian,3.1992609155950764,0.11486566616069502,8400
+sim_lr_gaussian_sigma_3p0,0,row_mean,ok,,3.0,gaussian,3.230957442125884,0.11600369232704917,8400
+sim_lr_gaussian_sigma_3p0,0,soft_impute,ok,,3.0,gaussian,2.48397722805175,0.0891842542873967,8400
+sim_lr_gaussian_sigma_3p0,1,global_mean,ok,,3.0,gaussian,3.1041167386306934,0.11136470237814415,8400
+sim_lr_gaussian_sigma_3p0,1,row_mean,ok,,3.0,gaussian,3.1454435086961654,0.11284736035660069,8400
+sim_lr_gaussian_sigma_3p0,1,soft_impute,ok,,3.0,gaussian,2.440155240268624,0.08754411801176616,8400
+sim_lr_gaussian_sigma_3p0,2,global_mean,ok,,3.0,gaussian,3.1827376455442056,0.10831994262125243,8400
+sim_lr_gaussian_sigma_3p0,2,row_mean,ok,,3.0,gaussian,3.218445402030496,0.10953520525502419,8400
+sim_lr_gaussian_sigma_3p0,2,soft_impute,ok,,3.0,gaussian,2.4873057427358987,0.08465190830662894,8400

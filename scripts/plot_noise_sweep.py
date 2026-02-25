@@ -25,6 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="nrmse",
         help="Metric column to plot on the y-axis.",
     )
+    parser.add_argument(
+        "--x-log",
+        action="store_true",
+        help="Use logarithmic scaling on the x-axis (noise sigma).",
+    )
     return parser
 
 
@@ -70,6 +75,8 @@ def main() -> None:
     plt.xlabel("Noise level (sigma)")
     plt.ylabel(metric_label)
     plt.title(f"{metric_label} vs Noise Level")
+    if args.x_log:
+        plt.xscale("log")
     plt.grid(alpha=0.3)
     plt.legend()
     args.output_path.parent.mkdir(parents=True, exist_ok=True)

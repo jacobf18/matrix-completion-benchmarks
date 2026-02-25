@@ -10,14 +10,19 @@ const palette = ["#0f766e", "#b45309", "#4f46e5", "#c026d3", "#0f172a", "#dc2626
 const csvFile = document.getElementById("csvFile");
 const xAxisSelect = document.getElementById("xAxisSelect");
 const metricSelect = document.getElementById("metricSelect");
+const patternSelect = document.getElementById("patternSelect");
+const seriesViewSelect = document.getElementById("seriesViewSelect");
+const errorBarSelect = document.getElementById("errorBarSelect");
 const chart = document.getElementById("chart");
 const legend = document.getElementById("legend");
 const tableBody = document.querySelector("#resultsTable tbody");
+const resultsTableWrap = document.querySelector("#resultsTable")?.closest(".table-wrap");
 
 const jsonFiles = document.getElementById("jsonFiles");
 const jsonMetricSelect = document.getElementById("jsonMetricSelect");
 const jsonChart = document.getElementById("jsonChart");
 const jsonTableBody = document.querySelector("#jsonResultsTable tbody");
+const jsonTableWrap = document.querySelector("#jsonResultsTable")?.closest(".table-wrap");
 const loadDemoCsvBtn = document.getElementById("loadDemoCsvBtn");
 const loadDemoJsonBtn = document.getElementById("loadDemoJsonBtn");
 const demoStatus = document.getElementById("demoStatus");
@@ -43,6 +48,15 @@ if (metricSelect) {
 }
 if (xAxisSelect) {
   xAxisSelect.addEventListener("change", () => render());
+}
+if (patternSelect) {
+  patternSelect.addEventListener("change", () => render());
+}
+if (seriesViewSelect) {
+  seriesViewSelect.addEventListener("change", () => render());
+}
+if (errorBarSelect) {
+  errorBarSelect.addEventListener("change", () => render());
 }
 
 if (jsonFiles) {
@@ -182,17 +196,64 @@ function populateSelectors() {
     ?? state.numericColumns[0];
   xAxisSelect.value = xDefault;
   metricSelect.value = mDefault;
+  populatePatternFilter();
+}
+
+function populatePatternFilter() {
+  if (!patternSelect) {
+    return;
+  }
+  patternSelect.innerHTML = "";
+
+  const all = document.createElement("option");
+  all.value = "__all__";
+  all.textContent = "All patterns";
+  patternSelect.appendChild(all);
+
+  const hasPattern = state.headers.includes("pattern");
+  if (!hasPattern) {
+    patternSelect.value = "__all__";
+    patternSelect.disabled = true;
+    return;
+  }
+
+  const values = Array.from(
+    new Set(
+      state.rows
+        .map((r) => String(r.pattern ?? "").trim())
+        .filter((v) => v.length > 0)
+    )
+  ).sort();
+
+  for (const value of values) {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value;
+    patternSelect.appendChild(opt);
+  }
+  patternSelect.disabled = values.length === 0;
+  patternSelect.value = "__all__";
+}
+
+function getFilteredRows() {
+  if (!patternSelect || patternSelect.value === "__all__") {
+    return state.rows;
+  }
+  const selected = patternSelect.value;
+  return state.rows.filter((r) => String(r.pattern ?? "").trim() === selected);
 }
 
 function renderTable() {
   tableBody.innerHTML = "";
-  if (state.rows.length === 0) {
+  const filteredRows = getFilteredRows();
+  if (filteredRows.length === 0) {
     tableBody.innerHTML = '<tr><td colspan="4">Upload a CSV file to view results.</td></tr>';
+    updateTableScrollState(tableBody, resultsTableWrap);
     return;
   }
   const xAxis = xAxisSelect.value || "noise_sigma";
   const metric = metricSelect.value || "nrmse";
-  const sorted = [...state.rows].sort((a, b) => {
+  const sorted = [...filteredRows].sort((a, b) => {
     const ax = Number(a[xAxis]);
     const bx = Number(b[xAxis]);
     const aSeries = seriesKey(a);
@@ -211,15 +272,19 @@ function renderTable() {
     `;
     tableBody.appendChild(tr);
   }
+  updateTableScrollState(tableBody, resultsTableWrap);
 }
 
 function renderChart() {
   const metric = metricSelect.value;
   const xAxis = xAxisSelect.value;
+  const seriesView = seriesViewSelect?.value ?? "summary";
+  const errorMode = errorBarSelect?.value ?? "sd";
+  const filteredRows = getFilteredRows();
   chart.innerHTML = "";
   legend.innerHTML = "";
 
-  if (state.rows.length === 0) {
+  if (filteredRows.length === 0) {
     drawText(40, 190, "Upload a benchmark CSV file to render chart.");
     return;
   }
@@ -228,9 +293,21 @@ function renderChart() {
     return;
   }
 
-  const grouped = groupByAlgorithm(state.rows);
-  const allX = state.rows.map((r) => Number(r[xAxis])).filter(Number.isFinite);
-  const allY = state.rows.map((r) => Number(r[metric])).filter(Number.isFinite);
+  const grouped = groupByAlgorithm(filteredRows);
+  const aggregatedSeries = buildAggregatedSeries(grouped, xAxis, metric, errorMode);
+  const rawSeries = buildRawSeries(grouped, xAxis, metric);
+
+  const allX = (seriesView === "raw" ? rawSeries : aggregatedSeries)
+    .flatMap((s) => s.points.map((p) => p.x))
+    .filter(Number.isFinite);
+  const allY = (seriesView === "raw" ? rawSeries : aggregatedSeries)
+    .flatMap((s) => {
+      if (seriesView === "raw") {
+        return s.points.map((p) => p.y);
+      }
+      return s.points.flatMap((p) => [p.mean - p.spread, p.mean + p.spread]);
+    })
+    .filter(Number.isFinite);
   if (allX.length === 0 || allY.length === 0) {
     drawText(40, 190, "Selected columns are not plottable.");
     return;
@@ -271,38 +348,130 @@ function renderChart() {
   drawText(8, 18, metric.toUpperCase(), 13, "#334155", "700");
   drawText(w / 2 - 80, h - 4, xAxis, 12, "#334155");
 
-  Object.entries(grouped)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .forEach(([algorithm, rows], idx) => {
-      const color = palette[idx % palette.length];
-      const sorted = rows
-        .filter((r) => Number.isFinite(Number(r[xAxis])) && Number.isFinite(Number(r[metric])))
-        .sort((a, b) => Number(a[xAxis]) - Number(b[xAxis]));
-      if (sorted.length === 0) {
+  const seriesForPlot = seriesView === "raw" ? rawSeries : aggregatedSeries;
+  const algoOrder = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+  const colorByAlgorithm = Object.fromEntries(
+    algoOrder.map((algo, i) => [algo, palette[i % palette.length]])
+  );
+  const legendAdded = new Set();
+  seriesForPlot.forEach((series, idx) => {
+      const algorithm = series.algorithm;
+      const points = series.points;
+      const color = colorByAlgorithm[algorithm] ?? palette[idx % palette.length];
+      if (points.length === 0) {
         return;
       }
-      const points = sorted.map((r) => `${xScale(Number(r[xAxis]))},${yScale(Number(r[metric]))}`).join(" ");
+      const pointCoords = points
+        .map((p) => `${xScale(p.x)},${yScale(seriesView === "raw" ? p.y : p.mean)}`)
+        .join(" ");
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      poly.setAttribute("points", points);
+      poly.setAttribute("points", pointCoords);
       poly.setAttribute("fill", "none");
       poly.setAttribute("stroke", color);
-      poly.setAttribute("stroke-width", "2.6");
+      poly.setAttribute("stroke-width", seriesView === "raw" ? "1.3" : "2.6");
+      poly.setAttribute("stroke-opacity", seriesView === "raw" ? "0.35" : "1");
       chart.appendChild(poly);
 
-      sorted.forEach((r) => {
+      points.forEach((p) => {
+        if (seriesView === "summary" && p.n > 1 && p.spread > 0) {
+          const x = xScale(p.x);
+          const yLo = yScale(p.mean - p.spread);
+          const yHi = yScale(p.mean + p.spread);
+          drawLine(x, yLo, x, yHi, color, 1.4);
+          drawLine(x - 4, yLo, x + 4, yLo, color, 1.4);
+          drawLine(x - 4, yHi, x + 4, yHi, color, 1.4);
+        }
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("cx", xScale(Number(r[xAxis])));
-        circle.setAttribute("cy", yScale(Number(r[metric])));
-        circle.setAttribute("r", "3.6");
+        circle.setAttribute("cx", xScale(p.x));
+        circle.setAttribute("cy", yScale(seriesView === "raw" ? p.y : p.mean));
+        circle.setAttribute("r", seriesView === "raw" ? "2.6" : "3.6");
         circle.setAttribute("fill", color);
+        circle.setAttribute("fill-opacity", seriesView === "raw" ? "0.45" : "1");
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        if (seriesView === "raw") {
+          title.textContent = `${algorithm}\nseed=${p.seed}\n${xAxis}=${p.x.toFixed(3)}\n${metric}=${p.y.toFixed(6)}`;
+        } else {
+          title.textContent = `${algorithm}\n${xAxis}=${p.x.toFixed(3)}\nmean=${p.mean.toFixed(6)}\n${errorMode}=${p.spread.toFixed(6)}\nn=${p.n}`;
+        }
+        circle.appendChild(title);
         chart.appendChild(circle);
       });
 
-      const item = document.createElement("span");
-      item.className = "legend__item";
-      item.innerHTML = `<span class="legend__dot" style="background:${color}"></span>${escapeHtml(algorithm)}`;
-      legend.appendChild(item);
+      if (!legendAdded.has(algorithm)) {
+        const item = document.createElement("span");
+        item.className = "legend__item";
+        const seedLabel = series.seedCount ? `, n=${series.seedCount}` : "";
+        const modeLabel = seriesView === "raw" ? "raw" : `mean±${errorMode}`;
+        item.innerHTML = `<span class="legend__dot" style="background:${color}"></span>${escapeHtml(algorithm)} (${modeLabel}${seedLabel})`;
+        legend.appendChild(item);
+        legendAdded.add(algorithm);
+      }
     });
+}
+
+function buildAggregatedSeries(grouped, xAxis, metric, errorMode) {
+  return Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([algorithm, rows]) => {
+      const byX = new Map();
+      const seeds = new Set();
+      for (const row of rows) {
+        const x = Number(row[xAxis]);
+        const y = Number(row[metric]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          continue;
+        }
+        const seed = Number(row.seed);
+        if (Number.isFinite(seed)) {
+          seeds.add(seed);
+        }
+        if (!byX.has(x)) {
+          byX.set(x, []);
+        }
+        byX.get(x).push(y);
+      }
+      const points = Array.from(byX.entries())
+        .map(([x, ys]) => {
+          const n = ys.length;
+          const mean = ys.reduce((a, b) => a + b, 0) / n;
+          const variance = n > 1 ? ys.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1) : 0;
+          const std = Math.sqrt(Math.max(variance, 0));
+          const spread = errorMode === "ci95" && n > 1 ? 1.96 * std / Math.sqrt(n) : std;
+          return { x, mean, std, spread, n };
+        })
+        .sort((a, b) => a.x - b.x);
+      return { algorithm, points, seedCount: seeds.size };
+    })
+    .filter((s) => s.points.length > 0);
+}
+
+function buildRawSeries(grouped, xAxis, metric) {
+  const out = [];
+  for (const [algorithm, rows] of Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))) {
+    const bySeed = new Map();
+    for (const row of rows) {
+      const x = Number(row[xAxis]);
+      const y = Number(row[metric]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        continue;
+      }
+      const rawSeed = Number(row.seed);
+      const seedKey = Number.isFinite(rawSeed) ? String(rawSeed) : "__no_seed__";
+      if (!bySeed.has(seedKey)) {
+        bySeed.set(seedKey, []);
+      }
+      bySeed.get(seedKey).push({ x, y, seed: seedKey });
+    }
+    const seedCount = bySeed.size;
+    for (const [seedKey, points] of bySeed.entries()) {
+      out.push({
+        algorithm,
+        seedCount,
+        points: points.sort((a, b) => a.x - b.x).map((p) => ({ ...p, seed: seedKey })),
+      });
+    }
+  }
+  return out;
 }
 
 function normalizeEvalJson(payload, fileName) {
@@ -356,9 +525,21 @@ function populateJsonMetricSelector() {
     jsonMetricSelect.appendChild(opt);
   }
   const preferred = [
+    "downstream_balanced_accuracy_xgboost",
+    "downstream_balanced_accuracy_random_forest",
+    "downstream_balanced_accuracy_linear",
+    "downstream_roc_auc_xgboost",
+    "downstream_average_precision_xgboost",
+    "downstream_f1_xgboost",
     "downstream_accuracy_xgboost",
     "downstream_accuracy_random_forest",
     "downstream_accuracy_linear",
+    "downstream_balanced_accuracy_xgboost_mi_pooled",
+    "downstream_balanced_accuracy_random_forest_mi_pooled",
+    "downstream_balanced_accuracy_linear_mi_pooled",
+    "downstream_roc_auc_xgboost_mi_pooled",
+    "downstream_average_precision_xgboost_mi_pooled",
+    "downstream_f1_xgboost_mi_pooled",
     "downstream_accuracy_xgboost_mi_pooled",
     "downstream_accuracy_random_forest_mi_pooled",
     "downstream_accuracy_linear_mi_pooled",
@@ -380,6 +561,7 @@ function renderJsonTable() {
   jsonTableBody.innerHTML = "";
   if (state.jsonEvalEntries.length === 0) {
     jsonTableBody.innerHTML = '<tr><td colspan="5">Upload tabular evaluation JSON files to view results.</td></tr>';
+    updateTableScrollState(jsonTableBody, jsonTableWrap);
     return;
   }
   const metricKey = jsonMetricSelect.value;
@@ -395,6 +577,33 @@ function renderJsonTable() {
     `;
     jsonTableBody.appendChild(tr);
   }
+  updateTableScrollState(jsonTableBody, jsonTableWrap);
+}
+
+function updateTableScrollState(tbody, wrap) {
+  if (!tbody || !wrap) {
+    return;
+  }
+  const maxVisibleRows = 15;
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  const dataRows = rows.filter((row) => row.querySelectorAll("td").length > 1);
+  const shouldScroll = dataRows.length > maxVisibleRows;
+
+  wrap.classList.toggle("table-wrap--scroll", shouldScroll);
+  if (!shouldScroll) {
+    wrap.style.maxHeight = "";
+    return;
+  }
+
+  const table = tbody.closest("table");
+  const thead = table?.querySelector("thead");
+  const headerHeight = thead ? thead.getBoundingClientRect().height : 0;
+  const visibleRows = dataRows.slice(0, maxVisibleRows);
+  const rowsHeight = visibleRows.reduce((sum, row) => sum + row.getBoundingClientRect().height, 0);
+  const fallbackRowHeight = dataRows[0]?.getBoundingClientRect().height ?? 28;
+  const totalRowsHeight = rowsHeight > 0 ? rowsHeight : fallbackRowHeight * maxVisibleRows;
+
+  wrap.style.maxHeight = `${Math.ceil(headerHeight + totalRowsHeight + 2)}px`;
 }
 
 function renderJsonChart() {
@@ -530,6 +739,10 @@ function safeDen(v) {
 
 async function loadDemoCsv() {
   const candidates = [
+    "./data/ckd_ehr_classification_sweep_summary.csv",
+    "./data/ckd_ehr_regression_sweep_summary.csv",
+    "./data/ckd_ehr_regression_prelim_summary.csv",
+    "./data/ckd_ehr_classification_prelim_summary.csv",
     "./data/synthetic_denoise_results.csv",
     "./data/noise_sweep_results.csv",
     "./data/hankel_results.csv",

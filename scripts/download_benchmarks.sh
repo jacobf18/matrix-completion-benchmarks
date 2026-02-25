@@ -25,6 +25,7 @@ DATASETS=(
   "acdc_cardiac_cine"
   "uci_repository"
   "proteomics_benchmark_collection"
+  "ckd_ehr_abu_dhabi"
 )
 
 echo "Downloading datasets into ${OUT_ROOT}"
@@ -35,7 +36,15 @@ PYTHONPATH=src python -m mcbench.cli fetch-dataset \
   --dataset-id "${DATASETS[@]}"
 
 echo "Generating synthetic noisy benchmarks in ${SIM_ROOT}"
-for preset in sim_lr_gaussian_low sim_lr_gaussian_medium sim_lr_gaussian_high sim_orthogonal_student_t sim_block_sparse_corrupt; do
+for preset in \
+  sim_lr_gaussian_sigma_0p01 \
+  sim_lr_gaussian_sigma_0p03 \
+  sim_lr_gaussian_sigma_0p1 \
+  sim_lr_gaussian_sigma_0p3 \
+  sim_lr_gaussian_sigma_1p0 \
+  sim_lr_gaussian_sigma_3p0 \
+  sim_orthogonal_student_t \
+  sim_block_sparse_corrupt; do
   if ! PYTHONPATH=src python -m mcbench.cli generate-simulated \
     --catalog-path "${CATALOG_PATH}" \
     --output-root "${SIM_ROOT}" \

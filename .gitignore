@@ -137,6 +137,8 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.kaggle/
+kaggle.json
 .venv
 env/
 venv/
@@ -215,3 +217,5 @@ benchmarks/noisy_sources/
 benchmarks/simulated/
 
 **/*.png
+**/datasets/
+**/reports/

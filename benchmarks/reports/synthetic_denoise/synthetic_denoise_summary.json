@@ -2,27 +2,24 @@
   "algorithms": [
     "global_mean",
     "row_mean",
-    "soft_impute",
-    "nuclear_norm_minimization",
-    "hyperimpute",
-    "missforest",
-    "forest_diffusion"
+    "soft_impute"
   ],
   "catalog_path": "benchmarks/catalog.yaml",
-  "detailed_csv": "benchmarks/reports/synthetic_denoise/synthetic_denoise_detailed.csv",
-  "num_detailed_rows": 105,
-  "num_summary_rows": 15,
+  "detailed_csv": "benchmarks/reports/synthetic_denoise_debug/synthetic_denoise_detailed.csv",
+  "num_detailed_rows": 54,
+  "num_summary_rows": 18,
   "preset_ids": [
-    "sim_block_sparse_corrupt",
-    "sim_lr_gaussian_high",
-    "sim_lr_gaussian_low",
-    "sim_lr_gaussian_medium",
-    "sim_orthogonal_student_t"
+    "sim_lr_gaussian_sigma_0p01",
+    "sim_lr_gaussian_sigma_0p03",
+    "sim_lr_gaussian_sigma_0p1",
+    "sim_lr_gaussian_sigma_0p3",
+    "sim_lr_gaussian_sigma_1p0",
+    "sim_lr_gaussian_sigma_3p0"
   ],
   "seeds": [
     0,
     1,
     2
   ],
-  "summary_csv": "benchmarks/reports/synthetic_denoise/synthetic_denoise_summary.csv"
+  "summary_csv": "benchmarks/reports/synthetic_denoise_debug/synthetic_denoise_summary.csv"
 }

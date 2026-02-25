@@ -90,7 +90,7 @@ Download datasets into `benchmarks/sources`:
 
 ```bash
 mcbench fetch-dataset \
-  --dataset-id movielens_latest_small movielens_100k movielens_1m prop99_smoking basque_gdpcap \
+  --dataset-id movielens_latest_small movielens_100k movielens_1m prop99_smoking basque_gdpcap ckd_ehr_abu_dhabi \
   --output-root benchmarks/sources
 ```
 
@@ -174,6 +174,22 @@ Run implemented algorithms on the synthetic noisy matrix-completion presets (den
 
 ```bash
 scripts/run_synthetic_denoise_e2e.sh
+```
+
+Choose a custom algorithm subset:
+
+```bash
+scripts/run_synthetic_denoise_e2e.sh \
+  --algorithms "global_mean soft_impute missforest"
+```
+
+You can also set seeds/presets:
+
+```bash
+scripts/run_synthetic_denoise_e2e.sh \
+  --seeds "0,1,2,3" \
+  --preset-ids "sim_lr_gaussian_low sim_lr_gaussian_medium" \
+  --algorithms "global_mean row_mean soft_impute"
 ```
 
 Outputs:
@@ -347,6 +363,10 @@ Tabular downstream metrics in registry:
 - `downstream_accuracy_linear`
 - `downstream_accuracy_random_forest`
 - `downstream_accuracy_xgboost`
+- `downstream_balanced_accuracy_*` (linear/random_forest/xgboost)
+- `downstream_f1_*` (linear/random_forest/xgboost)
+- `downstream_roc_auc_*` (linear/random_forest/xgboost, binary classification)
+- `downstream_average_precision_*` (linear/random_forest/xgboost, binary classification)
 
 ## Add Your Own Algorithm and Metric
 
@@ -392,6 +412,61 @@ Metric contract (`MatrixMetric`):
 - For real data where full ground truth is not available, create dataset bundles manually with your own `eval_mask` policy.
 
 ## Tabular Imputation Benchmarks
+
+### CKD EHR (Kaggle) End-to-End Regression Benchmark
+
+Requirements:
+
+- Install extras: `pip install -e '.[tabular,impute]'`
+- Install and authenticate Kaggle CLI (`kaggle.json`) to access:
+  `https://www.kaggle.com/datasets/davidechicco/chronic-kidney-disease-ehrs-abu-dhabi`
+
+Fetch the source dataset:
+
+```bash
+PYTHONPATH=src python -m mcbench.cli fetch-dataset \
+  --dataset-id ckd_ehr_abu_dhabi \
+  --output-root benchmarks/sources \
+  --skip-existing
+```
+
+Prepare tabular bundles with multiple missingness patterns/fractions:
+
+```bash
+PYTHONPATH=src python scripts/prepare_ckd_ehr_tabular_benchmark.py \
+  --source-dir benchmarks/sources/ckd_ehr_abu_dhabi/raw \
+  --output-root benchmarks/datasets/ckd_ehr_regression \
+  --target-column age \
+  --patterns mcar,mar_logistic,mnar_self_logistic,block,bursty \
+  --missing-fractions 0.1,0.2,0.4 \
+  --seeds 0,1,2 \
+  --test-fraction 0.2
+```
+
+Run imputation + multiple-imputation evaluation + downstream regression:
+
+```bash
+PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
+  --dataset-root benchmarks/datasets/ckd_ehr_regression \
+  --output-root benchmarks/reports/ckd_ehr_regression \
+  --algorithms global_mean,row_mean,soft_impute \
+  --num-imputations 5
+```
+
+To include the `mi_gaussian` multiple-imputation baseline (opt-in):
+
+```bash
+PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
+  --dataset-root benchmarks/datasets/ckd_ehr_regression \
+  --output-root benchmarks/reports/ckd_ehr_regression \
+  --algorithms global_mean,row_mean,soft_impute \
+  --num-imputations 5 \
+  --include-mi-gaussian
+```
+
+The script writes per-bundle JSON outputs and a summary CSV:
+
+- `benchmarks/reports/ckd_ehr_regression/ckd_ehr_regression_summary.csv`
 
 Prepare a tabular benchmark bundle with downstream train/test row masks:
 

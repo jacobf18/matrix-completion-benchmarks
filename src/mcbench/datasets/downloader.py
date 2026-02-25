@@ -3,6 +3,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
+import shutil
+import subprocess
 import urllib.error
 import urllib.request
 import zipfile
@@ -230,6 +233,95 @@ class MovieTweetingsDownloader(DatasetDownloader):
         return self._write_outputs(output_root / self.spec.dataset_id, matrix, users, items, raw_dat)
 
 
+class KaggleTabularDownloader(DatasetDownloader):
+    def fetch(self, output_root: Path) -> Path:
+        try:
+            import pandas as pd
+        except ImportError as exc:
+            raise ImportError(
+                "Kaggle tabular downloader requires pandas. Install with: pip install pandas"
+            ) from exc
+
+        raw_dir = output_root / self.spec.dataset_id / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        slug = self._extract_dataset_slug(self.spec.source_url)
+        kaggle_bin = shutil.which("kaggle")
+        if kaggle_bin is None:
+            raise RuntimeError(
+                "Kaggle CLI not found. Install/configure kaggle and authenticate (kaggle.json)."
+            )
+
+        cmd = [kaggle_bin, "datasets", "download", "-d", slug, "-p", str(raw_dir), "--force"]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Kaggle download failed. Ensure credentials are configured. "
+                f"stderr: {proc.stderr.strip() or proc.stdout.strip()}"
+            )
+
+        zip_files = sorted(raw_dir.glob("*.zip"))
+        if not zip_files:
+            raise RuntimeError(f"No zip archive downloaded from Kaggle for slug '{slug}'.")
+        archive_path = zip_files[0]
+        with zipfile.ZipFile(archive_path, "r") as zf:
+            zf.extractall(raw_dir)
+
+        csv_candidates = sorted(raw_dir.rglob("*.csv"))
+        if not csv_candidates:
+            raise RuntimeError(f"No CSV files found after extracting {archive_path.name}.")
+        csv_path = max(csv_candidates, key=lambda p: p.stat().st_size)
+
+        df = pd.read_csv(csv_path)
+        if df.shape[0] == 0 or df.shape[1] == 0:
+            raise ValueError(f"CSV appears empty: {csv_path}")
+
+        encoded = self._encode_tabular_dataframe(df)
+        matrix = encoded.to_numpy(dtype=np.float64, copy=True)
+        rows = np.arange(matrix.shape[0], dtype=np.int64)
+        cols = np.array(encoded.columns.astype(str), dtype=object)
+        output_dir = self._write_outputs(output_root / self.spec.dataset_id, matrix, rows, cols, archive_path)
+
+        meta_path = output_dir / "source_meta.json"
+        meta = json.loads(meta_path.read_text())
+        meta["kaggle_dataset"] = slug
+        meta["selected_csv"] = str(csv_path)
+        save_json(meta_path, meta)
+        return output_dir
+
+    @staticmethod
+    def _extract_dataset_slug(url: str) -> str:
+        match = re.search(r"kaggle\.com/datasets/([^/]+/[^/]+)", url)
+        if not match:
+            raise ValueError(f"Could not parse Kaggle dataset slug from URL: {url}")
+        return match.group(1)
+
+    @staticmethod
+    def _encode_tabular_dataframe(df: "pd.DataFrame") -> "pd.DataFrame":
+        import pandas as pd
+
+        out = pd.DataFrame(index=df.index)
+        missing_tokens = {"", "na", "n/a", "null", "none", "?", "nan"}
+        for col in df.columns:
+            series = df[col]
+            if series.dtype == object:
+                normalized = series.astype(str).str.strip()
+                normalized = normalized.mask(normalized.str.lower().isin(missing_tokens))
+                series = normalized.replace("nan", np.nan)
+
+            numeric = pd.to_numeric(series, errors="coerce")
+            valid_numeric = int(numeric.notna().sum())
+            valid_total = int(series.notna().sum()) if hasattr(series, "notna") else valid_numeric
+            if valid_total > 0 and valid_numeric / valid_total >= 0.9:
+                out[col] = numeric.astype(float)
+                continue
+
+            cats = pd.Categorical(series)
+            codes = cats.codes.astype(float)
+            codes[codes < 0] = np.nan
+            out[col] = codes
+        return out
+
+
 def build_downloader(spec: DatasetSpec) -> DatasetDownloader:
     if spec.dataset_id.startswith("movielens_"):
         return MovieLensDownloader(spec)
@@ -237,6 +329,8 @@ def build_downloader(spec: DatasetSpec) -> DatasetDownloader:
         return MovieTweetingsDownloader(spec)
     if spec.dataset_id in {"prop99_smoking", "basque_gdpcap"}:
         return RDatasetsPanelDownloader(spec)
+    if spec.dataset_id in {"ckd_ehr_abu_dhabi"}:
+        return KaggleTabularDownloader(spec)
     raise ValueError(f"No downloader implemented for '{spec.dataset_id}'.")
 
 

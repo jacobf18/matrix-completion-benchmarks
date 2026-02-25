@@ -89,12 +89,17 @@ datasets:
     description: "Proteomics benchmark collection (for MCAR/MNAR imputation studies)."
     source_url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7815892/"
     citation_url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7815892/"
+  ckd_ehr_abu_dhabi:
+    kind: tabular
+    description: "Chronic kidney disease EHR benchmark dataset (Abu Dhabi)."
+    source_url: "https://www.kaggle.com/datasets/davidechicco/chronic-kidney-disease-ehrs-abu-dhabi/data"
+    citation_url: "https://www.kaggle.com/datasets/davidechicco/chronic-kidney-disease-ehrs-abu-dhabi"
 
 noisy_benchmarks: {}
 
 synthetic_noisy_benchmarks:
-  sim_lr_gaussian_low:
-    description: "Low-rank Gaussian factors with low Gaussian noise."
+  sim_lr_gaussian_sigma_0p01:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=0.01 (log sweep)."
     dgp_type: low_rank_gaussian
     noise_type: gaussian
     params:
@@ -104,9 +109,9 @@ synthetic_noisy_benchmarks:
       observed_fraction: 0.35
       eval_fraction: 0.2
       factor_scale: 1.0
-      sigma: 0.05
-  sim_lr_gaussian_medium:
-    description: "Low-rank Gaussian factors with medium Gaussian noise."
+      sigma: 0.01
+  sim_lr_gaussian_sigma_0p03:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=0.03 (log sweep)."
     dgp_type: low_rank_gaussian
     noise_type: gaussian
     params:
@@ -116,9 +121,9 @@ synthetic_noisy_benchmarks:
       observed_fraction: 0.35
       eval_fraction: 0.2
       factor_scale: 1.0
-      sigma: 0.15
-  sim_lr_gaussian_high:
-    description: "Low-rank Gaussian factors with high Gaussian noise."
+      sigma: 0.03
+  sim_lr_gaussian_sigma_0p1:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=0.1 (log sweep)."
     dgp_type: low_rank_gaussian
     noise_type: gaussian
     params:
@@ -128,7 +133,43 @@ synthetic_noisy_benchmarks:
       observed_fraction: 0.35
       eval_fraction: 0.2
       factor_scale: 1.0
-      sigma: 0.35
+      sigma: 0.1
+  sim_lr_gaussian_sigma_0p3:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=0.3 (log sweep)."
+    dgp_type: low_rank_gaussian
+    noise_type: gaussian
+    params:
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 0.3
+  sim_lr_gaussian_sigma_1p0:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=1.0 (log sweep)."
+    dgp_type: low_rank_gaussian
+    noise_type: gaussian
+    params:
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 1.0
+  sim_lr_gaussian_sigma_3p0:
+    description: "Low-rank Gaussian factors with Gaussian noise sigma=3.0 (log sweep)."
+    dgp_type: low_rank_gaussian
+    noise_type: gaussian
+    params:
+      n_rows: 400
+      n_cols: 300
+      rank: 10
+      observed_fraction: 0.35
+      eval_fraction: 0.2
+      factor_scale: 1.0
+      sigma: 3.0
   sim_orthogonal_student_t:
     description: "Orthogonal low-rank matrix with heavy-tailed Student-t noise."
     dgp_type: low_rank_orthogonal

@@ -113,6 +113,24 @@
             <span>Metric</span>
             <select id="metricSelect"></select>
           </label>
+          <label class="control">
+            <span>Pattern</span>
+            <select id="patternSelect"></select>
+          </label>
+          <label class="control">
+            <span>Series View</span>
+            <select id="seriesViewSelect">
+              <option value="summary" selected>Mean line</option>
+              <option value="raw">Raw per seed</option>
+            </select>
+          </label>
+          <label class="control">
+            <span>Error Bars</span>
+            <select id="errorBarSelect">
+              <option value="sd" selected>Standard deviation</option>
+              <option value="ci95">95% confidence interval</option>
+            </select>
+          </label>
         </div>
         <div class="chart-wrap">
           <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="Benchmark result line chart"></svg>

@@ -6,6 +6,58 @@ from . import ALGORITHM_REGISTRY
 from .base import MatrixCompletionAlgorithm
 
 
+def _wrap_check_array_force_all_finite(check_array_fn: object) -> object:
+    try:
+        param_names = check_array_fn.__code__.co_varnames  # type: ignore[attr-defined]
+    except AttributeError:
+        return check_array_fn
+
+    if "force_all_finite" in param_names or "ensure_all_finite" not in param_names:
+        return check_array_fn
+
+    def _check_array_compat(*args: object, **kwargs: object) -> np.ndarray:
+        if "force_all_finite" in kwargs and "ensure_all_finite" not in kwargs:
+            kwargs["ensure_all_finite"] = kwargs.pop("force_all_finite")
+        else:
+            kwargs.pop("force_all_finite", None)
+        return check_array_fn(*args, **kwargs)
+
+    return _check_array_compat
+
+
+def _patch_fancyimpute_sklearn_compat() -> None:
+    """Allow fancyimpute to call sklearn.check_array(force_all_finite=...)."""
+    try:
+        import sklearn.utils.validation as sk_validation
+    except ImportError:
+        return
+
+    check_array = getattr(sk_validation, "check_array", None)
+    if check_array is None:
+        return
+
+    patched = _wrap_check_array_force_all_finite(check_array)
+    sk_validation.check_array = patched  # type: ignore[assignment]
+
+    try:
+        import importlib
+    except ImportError:
+        return
+
+    module_names = (
+        "fancyimpute.solver",
+        "fancyimpute.soft_impute",
+        "fancyimpute.nuclear_norm_minimization",
+    )
+    for module_name in module_names:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue
+        if getattr(module, "check_array", None) is not None:
+            module.check_array = _wrap_check_array_force_all_finite(module.check_array)  # type: ignore[assignment]
+
+
 @ALGORITHM_REGISTRY.register("global_mean")
 class GlobalMeanImputer(MatrixCompletionAlgorithm):
     def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
@@ -36,6 +88,7 @@ class RowMeanImputer(MatrixCompletionAlgorithm):
 @ALGORITHM_REGISTRY.register("soft_impute")
 class SoftImpute(MatrixCompletionAlgorithm):
     def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        _patch_fancyimpute_sklearn_compat()
         try:
             from fancyimpute import SoftImpute as FancySoftImpute
         except ImportError as exc:
@@ -58,13 +111,17 @@ class SoftImpute(MatrixCompletionAlgorithm):
 @ALGORITHM_REGISTRY.register("nuclear_norm_minimization")
 class NuclearNormMinimization(MatrixCompletionAlgorithm):
     def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        _patch_fancyimpute_sklearn_compat()
         try:
             from fancyimpute import NuclearNormMinimization as FancyNNM
+            from fancyimpute.nuclear_norm_minimization import check_array as fancy_check_array
         except ImportError as exc:
             raise ImportError(
                 "nuclear_norm_minimization requires the optional dependency 'fancyimpute'. "
                 "Install with: pip install fancyimpute"
             ) from exc
+
+        backend = str(kwargs.pop("cvx_solver", "SCS")).upper()
 
         solver = FancyNNM(
             require_symmetric_solution=bool(kwargs.get("require_symmetric_solution", False)),
@@ -74,6 +131,36 @@ class NuclearNormMinimization(MatrixCompletionAlgorithm):
             max_iters=int(kwargs.get("max_iters", 50000)),
             verbose=bool(kwargs.get("verbose", False)),
         )
+
+        if backend != "CVXOPT":
+            try:
+                import cvxpy
+            except ImportError as exc:
+                raise ImportError(
+                    "nuclear_norm_minimization with non-CVXOPT solvers requires cvxpy. "
+                    "Install with: pip install cvxpy"
+                ) from exc
+
+            def _solve_with_backend(self: object, X: np.ndarray, missing_mask: np.ndarray) -> np.ndarray:
+                X = fancy_check_array(X, force_all_finite=False)
+                m, n = X.shape
+                S, objective = self._create_objective(m, n)  # type: ignore[attr-defined]
+                constraints = self._constraints(  # type: ignore[attr-defined]
+                    X=X,
+                    missing_mask=missing_mask,
+                    S=S,
+                    error_tolerance=self.error_tolerance,  # type: ignore[attr-defined]
+                )
+                problem = cvxpy.Problem(objective, constraints)
+                problem.solve(
+                    verbose=self.verbose,  # type: ignore[attr-defined]
+                    solver=getattr(cvxpy, backend),
+                    max_iters=self.max_iters,  # type: ignore[attr-defined]
+                )
+                return S.value
+
+            solver.solve = _solve_with_backend.__get__(solver, solver.__class__)  # type: ignore[assignment]
+
         return np.asarray(solver.fit_transform(observed.astype(np.float64, copy=True)), dtype=np.float64)
 
 
