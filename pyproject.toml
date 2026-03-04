@@ -15,6 +15,7 @@ impute = [
   "fancyimpute>=0.7.0",
   "hyperimpute>=0.1.17",
   "ForestDiffusion>=1.0.6",
+  "tabimpute>=0.0.2",
   "pandas>=2.0",
 ]
 tabular = [

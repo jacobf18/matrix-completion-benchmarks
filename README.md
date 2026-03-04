@@ -46,7 +46,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Install imputation extras for `soft_impute`, `nuclear_norm_minimization`, `hyperimpute`, `missforest`, and `forest_diffusion`:
+Install imputation extras for `soft_impute`, `nuclear_norm_minimization`, `hyperimpute`, `missforest`, `forest_diffusion`, and `tab_impute`:
 
 ```bash
 pip install -e '.[impute]'
@@ -293,6 +293,7 @@ This separation lets you run slow algorithms once, then evaluate many metric set
 - `hyperimpute`
 - `missforest`
 - `forest_diffusion`
+- `tab_impute`
 
 List all available algorithms:
 
@@ -344,6 +345,16 @@ mcbench run-algorithm \
   --algorithm forest_diffusion \
   --params-json '{"n_t": 25, "model": "xgboost", "diffusion_type": "vp", "n_estimators": 100, "max_depth": 7, "k": 1}' \
   --output-dir benchmarks/runs/movie_lens_small/forest_diffusion
+```
+
+`tab_impute` (via `tabimpute.interface.ImputePFN`) example:
+
+```bash
+PYTHONPATH=src python -m mcbench.cli run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm tab_impute \
+  --params-json '{"device":"cpu","num_repeats":1}' \
+  --output-dir benchmarks/runs/movie_lens_small/tab_impute
 ```
 
 ## Built-in Metrics
@@ -449,7 +460,7 @@ Run imputation + multiple-imputation evaluation + downstream regression:
 PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
   --dataset-root benchmarks/datasets/ckd_ehr_regression \
   --output-root benchmarks/reports/ckd_ehr_regression \
-  --algorithms global_mean,row_mean,soft_impute \
+  --algorithms global_mean,row_mean,soft_impute,tab_impute \
   --num-imputations 5
 ```
 
@@ -459,7 +470,7 @@ To include the `mi_gaussian` multiple-imputation baseline (opt-in):
 PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
   --dataset-root benchmarks/datasets/ckd_ehr_regression \
   --output-root benchmarks/reports/ckd_ehr_regression \
-  --algorithms global_mean,row_mean,soft_impute \
+  --algorithms global_mean,row_mean,soft_impute,tab_impute \
   --num-imputations 5 \
   --include-mi-gaussian
 ```

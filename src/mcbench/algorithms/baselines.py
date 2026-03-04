@@ -228,3 +228,39 @@ class ForestDiffusionBaseline(MatrixCompletionAlgorithm):
         model = ForestDiffusionModel(X=data, label_y=None, **model_kwargs)
         imputed = model.impute(k=k)
         return np.asarray(imputed, dtype=np.float64)
+
+
+@ALGORITHM_REGISTRY.register("tab_impute")
+class TabImputePFNBaseline(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            from tabimpute.interface import ImputePFN
+        except ImportError as exc:
+            raise ImportError(
+                "tab_impute requires optional dependency 'tabimpute'. "
+                "Install with: pip install tabimpute"
+            ) from exc
+
+        data = observed.astype(np.float64, copy=True)
+        if not np.any(~np.isfinite(data)):
+            return data
+
+        model = ImputePFN(
+            device=str(kwargs.get("device", "cpu")),
+            nhead=int(kwargs.get("nhead", 2)),
+            checkpoint_path=kwargs.get("checkpoint_path"),
+            max_num_rows=kwargs.get("max_num_rows"),
+            max_num_chunks=kwargs.get("max_num_chunks"),
+            verbose=bool(kwargs.get("verbose", False)),
+        )
+        num_repeats = int(kwargs.get("num_repeats", 1))
+        output = model.impute(data, return_full=False, num_repeats=num_repeats)
+
+        pred = np.asarray(output, dtype=np.float64)
+        if num_repeats > 1 and pred.ndim == 3:
+            pred = np.mean(pred, axis=0)
+        if pred.shape != data.shape:
+            raise ValueError(
+                f"tab_impute returned shape {pred.shape}, expected {data.shape}."
+            )
+        return pred

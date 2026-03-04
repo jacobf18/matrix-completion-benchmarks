@@ -62,7 +62,7 @@ def main() -> None:
     )
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
-    parser.add_argument("--algorithms", default="global_mean,row_mean,soft_impute")
+    parser.add_argument("--algorithms", default="global_mean,row_mean,soft_impute,tab_impute")
     parser.add_argument("--algorithm-params-json", default="{}")
     parser.add_argument("--num-imputations", type=int, default=5)
     parser.add_argument("--mi-seed", type=int, default=7)
