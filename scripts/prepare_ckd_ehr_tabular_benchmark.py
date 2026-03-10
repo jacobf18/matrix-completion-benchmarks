@@ -105,23 +105,8 @@ def _default_excluded_columns(target_column: str) -> set[str]:
     return set()
 
 
-def _make_eval_mask(
-    matrix: np.ndarray,
-    target_col: int,
-    pattern: str,
-    missing_fraction: float,
-    seed: int,
-) -> np.ndarray:
-    feature_matrix = matrix[:, :target_col]
-    feature_mask = generate_missingness_mask(
-        matrix=feature_matrix,
-        kind=pattern,
-        missing_fraction=missing_fraction,
-        seed=seed,
-    )
-    eval_mask = np.zeros_like(matrix, dtype=bool)
-    eval_mask[:, :target_col] = feature_mask
-    return eval_mask
+def _feature_columns(n_cols: int, target_col: int) -> list[int]:
+    return [c for c in range(n_cols) if c != target_col]
 
 
 def _train_test_split(n_rows: int, test_fraction: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
@@ -236,17 +221,35 @@ def main() -> None:
             for seed in seeds:
                 bundle_id = f"pattern_{pattern}__frac_{fraction:.3f}__seed_{seed}".replace(".", "p")
                 out_dir = args.output_root / bundle_id
-                eval_mask = _make_eval_mask(
-                    matrix=matrix,
-                    target_col=target_col,
-                    pattern=pattern,
-                    missing_fraction=fraction,
-                    seed=seed,
-                )
-                observed = apply_missingness(matrix=matrix, missing_mask=eval_mask)
                 train_mask, test_mask = _train_test_split(
                     n_rows=matrix.shape[0], test_fraction=args.test_fraction, seed=seed
                 )
+
+                eval_mask = np.zeros_like(matrix, dtype=bool)
+                feature_cols = _feature_columns(matrix.shape[1], target_col)
+                train_idx = np.flatnonzero(train_mask)
+                test_idx = np.flatnonzero(test_mask)
+
+                train_feature_mask = generate_missingness_mask(
+                    matrix=matrix[np.ix_(train_idx, feature_cols)],
+                    kind=pattern,
+                    missing_fraction=fraction,
+                    seed=seed,
+                )
+                test_feature_mask = generate_missingness_mask(
+                    matrix=matrix[np.ix_(test_idx, feature_cols)],
+                    kind=pattern,
+                    missing_fraction=fraction,
+                    seed=seed + 10_000,
+                )
+                eval_mask[np.ix_(train_idx, feature_cols)] = train_feature_mask
+                eval_mask[np.ix_(test_idx, feature_cols)] = test_feature_mask
+                observed = apply_missingness(matrix=matrix, missing_mask=eval_mask)
+
+                x_train = matrix[np.ix_(train_idx, feature_cols)]
+                y_train = matrix[train_idx, target_col]
+                x_test = matrix[np.ix_(test_idx, feature_cols)]
+                y_test = matrix[test_idx, target_col]
 
                 out_dir.mkdir(parents=True, exist_ok=True)
                 save_matrix(out_dir / "ground_truth.npy", matrix)
@@ -254,6 +257,11 @@ def main() -> None:
                 save_mask(out_dir / "eval_mask.npy", eval_mask)
                 save_mask(out_dir / "downstream_train_mask.npy", train_mask)
                 save_mask(out_dir / "downstream_test_mask.npy", test_mask)
+                save_matrix(out_dir / "x_train.npy", x_train)
+                np.save(out_dir / "y_train.npy", y_train)
+                save_matrix(out_dir / "x_test.npy", x_test)
+                np.save(out_dir / "y_test.npy", y_test)
+                np.save(out_dir / "feature_cols.npy", np.asarray(feature_cols, dtype=np.int64))
                 save_json(
                     out_dir / "dataset_meta.json",
                     {
@@ -263,9 +271,14 @@ def main() -> None:
                         "seed": int(seed),
                         "target_col": int(target_col),
                         "target_column": args.target_column,
+                        "feature_cols": feature_cols,
+                        "n_train_rows": int(train_idx.size),
+                        "n_test_rows": int(test_idx.size),
                         "shape": [int(matrix.shape[0]), int(matrix.shape[1])],
                         "eval_count": int(np.sum(eval_mask)),
-                        "eval_fraction_actual": float(np.sum(eval_mask) / np.sum(np.isfinite(matrix[:, :target_col]))),
+                        "eval_fraction_actual": float(
+                            np.sum(eval_mask[:, feature_cols]) / np.sum(np.isfinite(matrix[:, feature_cols]))
+                        ),
                     },
                 )
 

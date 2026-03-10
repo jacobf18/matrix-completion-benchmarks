@@ -187,6 +187,38 @@ def evaluate_downstream_models(
     return _fit_and_score_models(x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test, task=task)
 
 
+def evaluate_downstream_models_with_predictions(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    target_col: int,
+    train_row_mask: np.ndarray,
+    test_row_mask: np.ndarray,
+    task: str = "classification",
+) -> dict[str, Any]:
+    x_train, y_train, x_test, y_test, train_row_indices, test_row_indices = _build_supervised_splits_with_indices(
+        y_true=y_true,
+        y_pred=y_pred,
+        target_col=target_col,
+        train_row_mask=train_row_mask,
+        test_row_mask=test_row_mask,
+    )
+    scores, predictions, score_predictions = _fit_and_score_models_with_predictions(
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        task=task,
+    )
+    return {
+        "scores": scores,
+        "predictions": predictions,
+        "score_predictions": score_predictions,
+        "y_test": y_test,
+        "test_row_indices": test_row_indices,
+        "train_row_indices": train_row_indices,
+    }
+
+
 def evaluate_multiple_imputation_metrics(
     y_true: np.ndarray,
     y_preds: list[np.ndarray],
@@ -311,6 +343,23 @@ def _build_supervised_splits(
     train_row_mask: np.ndarray,
     test_row_mask: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    x_train, y_train, x_test, y_test, _, _ = _build_supervised_splits_with_indices(
+        y_true=y_true,
+        y_pred=y_pred,
+        target_col=target_col,
+        train_row_mask=train_row_mask,
+        test_row_mask=test_row_mask,
+    )
+    return x_train, y_train, x_test, y_test
+
+
+def _build_supervised_splits_with_indices(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    target_col: int,
+    train_row_mask: np.ndarray,
+    test_row_mask: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if y_true.shape != y_pred.shape:
         raise ValueError("y_true and y_pred shape mismatch.")
     n_rows, n_cols = y_true.shape
@@ -331,7 +380,9 @@ def _build_supervised_splits(
     y_test = y[test_valid]
     if x_train.shape[0] < 2 or x_test.shape[0] < 1:
         raise ValueError("Not enough valid train/test rows for downstream evaluation.")
-    return x_train, y_train, x_test, y_test
+    train_row_indices = np.flatnonzero(train_valid)
+    test_row_indices = np.flatnonzero(test_valid)
+    return x_train, y_train, x_test, y_test, train_row_indices, test_row_indices
 
 
 def _fit_and_score_models(

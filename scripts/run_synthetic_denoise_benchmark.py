@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ import numpy as np
 from mcbench.algorithms import ALGORITHM_REGISTRY
 from mcbench.datasets.catalog import load_catalog
 from mcbench.datasets.simulated import generate_simulated_noisy_benchmark
-from mcbench.io import load_matrix, save_json
+from mcbench.io import load_matrix, save_json, save_mask, save_matrix
 
 
 DEFAULT_ALGORITHMS = [
@@ -53,6 +54,60 @@ def _noise_sigma_like(noise_type: str, params: dict[str, Any]) -> float:
     if noise_type == "sparse_corruption":
         return float(params.get("corruption_scale", np.nan))
     return float(np.nan)
+
+
+def _save_dataset_snapshot(
+    output_dir: Path,
+    preset_id: str,
+    seed: int,
+    observed: np.ndarray,
+    y_true: np.ndarray,
+    eval_mask: np.ndarray,
+    spec_meta: dict[str, Any],
+) -> Path:
+    snapshot_dir = output_dir / "repro" / preset_id / f"seed_{seed}" / "dataset"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    save_matrix(snapshot_dir / "observed.npy", observed)
+    save_matrix(snapshot_dir / "ground_truth.npy", y_true)
+    save_mask(snapshot_dir / "eval_mask.npy", eval_mask)
+    save_json(
+        snapshot_dir / "dataset_meta.json",
+        {
+            **spec_meta,
+            "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return snapshot_dir
+
+
+def _save_algorithm_artifacts(
+    output_dir: Path,
+    preset_id: str,
+    seed: int,
+    algorithm_name: str,
+    y_true: np.ndarray,
+    eval_mask: np.ndarray,
+    y_pred: np.ndarray | None,
+    status: str,
+    error: str,
+) -> None:
+    algo_dir = output_dir / "repro" / preset_id / f"seed_{seed}" / "algorithms" / algorithm_name
+    algo_dir.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "preset_id": preset_id,
+        "seed": seed,
+        "algorithm": algorithm_name,
+        "status": status,
+        "error": error,
+        "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if y_pred is not None:
+        save_matrix(algo_dir / "prediction_full.npy", y_pred)
+        valid = eval_mask & np.isfinite(y_true) & np.isfinite(y_pred)
+        np.save(algo_dir / "eval_true_values.npy", y_true[valid])
+        np.save(algo_dir / "eval_pred_values.npy", y_pred[valid])
+        payload["eval_count"] = int(np.sum(valid))
+    save_json(algo_dir / "artifacts_meta.json", payload)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -104,6 +159,20 @@ def main() -> None:
             y_true = load_matrix(dataset_dir / "ground_truth.npy")
             eval_mask = np.load(dataset_dir / "eval_mask.npy").astype(bool)
             noise_sigma = _noise_sigma_like(spec.noise_type, spec.params)
+            _save_dataset_snapshot(
+                output_dir=args.output_dir,
+                preset_id=preset_id,
+                seed=seed,
+                observed=observed,
+                y_true=y_true,
+                eval_mask=eval_mask,
+                spec_meta={
+                    "preset_id": preset_id,
+                    "noise_type": spec.noise_type,
+                    "dgp_type": spec.dgp_type,
+                    "params": spec.params,
+                },
+            )
 
             for algorithm_name in args.algorithms:
                 algo_cls = ALGORITHM_REGISTRY.get(algorithm_name)
@@ -137,11 +206,33 @@ def main() -> None:
                         pred_dir = args.output_dir / "predictions" / preset_id / f"seed_{seed}"
                         pred_dir.mkdir(parents=True, exist_ok=True)
                         np.save(pred_dir / f"{algorithm_name}.npy", pred)
+                    _save_algorithm_artifacts(
+                        output_dir=args.output_dir,
+                        preset_id=preset_id,
+                        seed=seed,
+                        algorithm_name=algorithm_name,
+                        y_true=y_true,
+                        eval_mask=eval_mask,
+                        y_pred=pred,
+                        status=status,
+                        error=error,
+                    )
                 except Exception as exc:
                     rmse = np.nan
                     nrmse = np.nan
                     error = f"{type(exc).__name__}: {exc}"
                     status = "failed"
+                    _save_algorithm_artifacts(
+                        output_dir=args.output_dir,
+                        preset_id=preset_id,
+                        seed=seed,
+                        algorithm_name=algorithm_name,
+                        y_true=y_true,
+                        eval_mask=eval_mask,
+                        y_pred=None,
+                        status=status,
+                        error=error,
+                    )
 
                 detailed_rows.append(
                     {
@@ -244,4 +335,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

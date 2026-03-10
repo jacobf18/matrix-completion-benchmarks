@@ -24,9 +24,11 @@ MISSING_FRACTIONS="${MISSING_FRACTIONS:-0.1,0.2,0.3,0.4,0.5,0.6,0.7}"
 SEEDS="${SEEDS:-0,1,2,3,4,5,6,7,8,9}"
 TEST_FRACTION="${TEST_FRACTION:-0.2}"
 INCLUDE_MI_GAUSSIAN="${INCLUDE_MI_GAUSSIAN:-false}"
+STAGE="${STAGE:-all}"
+SKIP_EXISTING_IMPUTATIONS="${SKIP_EXISTING_IMPUTATIONS:-false}"
 
-ALGORITHMS="${ALGORITHMS:-global_mean,row_mean,soft_impute,nuclear_norm_minimization,hyperimpute,missforest,forest_diffusion,tab_impute}"
-ALGORITHM_PARAMS_JSON="${ALGORITHM_PARAMS_JSON:-{\"tab_impute\":{\"device\":\"cpu\",\"max_num_rows\":256,\"max_num_chunks\":4,\"num_repeats\":1}}}"
+ALGORITHMS="${ALGORITHMS:-global_mean,row_mean,col_mean,col_mode,knn,soft_impute,nuclear_norm_minimization,hyperimpute,missforest,forest_diffusion,tab_impute}"
+ALGORITHM_PARAMS_JSON="${ALGORITHM_PARAMS_JSON:-{\"tab_impute\":{\"device\":\"cuda\",\"model_version\":2,\"allow_v1_fallback\":true,\"max_num_rows\":256,\"max_num_chunks\":4,\"num_repeats\":1}}}"
 
 usage() {
   cat <<'EOF'
@@ -45,6 +47,8 @@ Options:
   --algorithms CSV               Algorithms CSV list.
   --algorithm-params-json JSON   JSON object keyed by algorithm name.
   --include-mi-gaussian          Include mi_gaussian baseline rows.
+  --stage NAME                   impute, evaluate, or all.
+  --skip-existing-imputations    Reuse existing <algo>_prediction.npy files.
   -h, --help                     Show help.
 EOF
 }
@@ -63,6 +67,8 @@ while [[ $# -gt 0 ]]; do
     --algorithms) ALGORITHMS="$2"; shift 2 ;;
     --algorithm-params-json) ALGORITHM_PARAMS_JSON="$2"; shift 2 ;;
     --include-mi-gaussian) INCLUDE_MI_GAUSSIAN="true"; shift ;;
+    --stage) STAGE="$2"; shift 2 ;;
+    --skip-existing-imputations) SKIP_EXISTING_IMPUTATIONS="true"; shift ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "Unknown option: $1" >&2
@@ -84,19 +90,30 @@ PYTHONPATH=src python scripts/prepare_ckd_ehr_tabular_benchmark.py \
 
 echo "Running algorithms: ${ALGORITHMS}"
 RUN_CMD=(
-  python scripts/run_ckd_ehr_regression_benchmark.py
+  python scripts/run_ckd_ehr_classification_benchmark.py
   --dataset-root "${DATASET_ROOT}"
   --output-root "${REPORT_ROOT}"
   --algorithms "${ALGORITHMS}"
   --task "${TASK}"
+  --stage "${STAGE}"
   --algorithm-params-json "${ALGORITHM_PARAMS_JSON}"
 )
 
 if [[ "${INCLUDE_MI_GAUSSIAN}" == "true" ]]; then
   RUN_CMD+=(--include-mi-gaussian)
 fi
+if [[ "${SKIP_EXISTING_IMPUTATIONS}" == "true" ]]; then
+  RUN_CMD+=(--skip-existing-imputations)
+fi
 
 PYTHONPATH=src "${RUN_CMD[@]}"
 
 echo "Done."
-echo "Summary CSV: ${REPORT_ROOT}/ckd_ehr_regression_summary.csv"
+if [[ "${STAGE}" == "impute" ]]; then
+  echo "Imputation summary CSV: ${REPORT_ROOT}/ckd_ehr_imputation_summary.csv"
+elif [[ "${STAGE}" == "evaluate" ]]; then
+  echo "Classification summary CSV: ${REPORT_ROOT}/ckd_ehr_classification_summary.csv"
+else
+  echo "Imputation summary CSV: ${REPORT_ROOT}/ckd_ehr_imputation_summary.csv"
+  echo "Classification summary CSV: ${REPORT_ROOT}/ckd_ehr_classification_summary.csv"
+fi

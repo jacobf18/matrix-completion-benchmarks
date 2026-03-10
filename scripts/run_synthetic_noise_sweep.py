@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,7 @@ import numpy as np
 
 from mcbench.algorithms import ALGORITHM_REGISTRY
 from mcbench.datasets.simulated import generate_simulated_noisy_benchmark
-from mcbench.io import load_matrix
+from mcbench.io import load_matrix, save_json, save_mask, save_matrix
 
 
 def _parse_noise_levels(raw: str) -> list[float]:
@@ -33,6 +34,56 @@ def _rmse_and_nrmse(y_true: np.ndarray, y_pred: np.ndarray, eval_mask: np.ndarra
     denom = float(np.max(t) - np.min(t))
     nrmse = 0.0 if denom == 0 else rmse / denom
     return rmse, nrmse
+
+
+def _save_dataset_snapshot(
+    report_dir: Path,
+    dataset_id: str,
+    observed: np.ndarray,
+    y_true: np.ndarray,
+    eval_mask: np.ndarray,
+    meta: dict[str, Any],
+) -> None:
+    snapshot_dir = report_dir / "repro" / dataset_id / "dataset"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    save_matrix(snapshot_dir / "observed.npy", observed)
+    save_matrix(snapshot_dir / "ground_truth.npy", y_true)
+    save_mask(snapshot_dir / "eval_mask.npy", eval_mask)
+    save_json(
+        snapshot_dir / "dataset_meta.json",
+        {
+            **meta,
+            "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+def _save_algorithm_artifacts(
+    report_dir: Path,
+    dataset_id: str,
+    algorithm_name: str,
+    y_true: np.ndarray,
+    eval_mask: np.ndarray,
+    y_pred: np.ndarray | None,
+    status: str,
+    error: str,
+) -> None:
+    algo_dir = report_dir / "repro" / dataset_id / "algorithms" / algorithm_name
+    algo_dir.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "dataset_id": dataset_id,
+        "algorithm": algorithm_name,
+        "status": status,
+        "error": error,
+        "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if y_pred is not None:
+        save_matrix(algo_dir / "prediction_full.npy", y_pred)
+        valid = eval_mask & np.isfinite(y_true) & np.isfinite(y_pred)
+        np.save(algo_dir / "eval_true_values.npy", y_true[valid])
+        np.save(algo_dir / "eval_pred_values.npy", y_pred[valid])
+        payload["eval_count"] = int(np.sum(valid))
+    save_json(algo_dir / "artifacts_meta.json", payload)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -86,6 +137,19 @@ def main() -> None:
         observed = load_matrix(dataset_dir / "observed.npy")
         y_true = load_matrix(dataset_dir / "ground_truth.npy")
         eval_mask = np.load(dataset_dir / "eval_mask.npy").astype(bool)
+        _save_dataset_snapshot(
+            report_dir=args.report_dir,
+            dataset_id=dataset_id,
+            observed=observed,
+            y_true=y_true,
+            eval_mask=eval_mask,
+            meta={
+                "dgp_type": args.dgp_type,
+                "noise_sigma": sigma,
+                "base_params": base_params,
+                "seed": args.seed,
+            },
+        )
 
         for algorithm_name in args.algorithms:
             algo_cls = ALGORITHM_REGISTRY.get(algorithm_name)
@@ -97,19 +161,48 @@ def main() -> None:
             if algorithm_name == "soft_impute":
                 algo_kwargs = dict(soft_impute_params)
 
-            prediction = np.asarray(algo_cls().complete(observed, **algo_kwargs), dtype=np.float64)
-            rmse, nrmse = _rmse_and_nrmse(y_true=y_true, y_pred=prediction, eval_mask=eval_mask)
-
-            if args.save_predictions:
-                pred_dir = args.report_dir / "predictions" / dataset_id
-                pred_dir.mkdir(parents=True, exist_ok=True)
-                np.save(pred_dir / f"{algorithm_name}.npy", prediction)
+            try:
+                prediction = np.asarray(algo_cls().complete(observed, **algo_kwargs), dtype=np.float64)
+                rmse, nrmse = _rmse_and_nrmse(y_true=y_true, y_pred=prediction, eval_mask=eval_mask)
+                status = "ok"
+                error = ""
+                if args.save_predictions:
+                    pred_dir = args.report_dir / "predictions" / dataset_id
+                    pred_dir.mkdir(parents=True, exist_ok=True)
+                    np.save(pred_dir / f"{algorithm_name}.npy", prediction)
+                _save_algorithm_artifacts(
+                    report_dir=args.report_dir,
+                    dataset_id=dataset_id,
+                    algorithm_name=algorithm_name,
+                    y_true=y_true,
+                    eval_mask=eval_mask,
+                    y_pred=prediction,
+                    status=status,
+                    error=error,
+                )
+            except Exception as exc:
+                rmse = np.nan
+                nrmse = np.nan
+                status = "failed"
+                error = f"{type(exc).__name__}: {exc}"
+                _save_algorithm_artifacts(
+                    report_dir=args.report_dir,
+                    dataset_id=dataset_id,
+                    algorithm_name=algorithm_name,
+                    y_true=y_true,
+                    eval_mask=eval_mask,
+                    y_pred=None,
+                    status=status,
+                    error=error,
+                )
 
             rows.append(
                 {
                     "dataset_id": dataset_id,
                     "noise_sigma": sigma,
                     "algorithm": algorithm_name,
+                    "status": status,
+                    "error": error,
                     "rmse": rmse,
                     "nrmse": nrmse,
                     "eval_count": int(np.sum(eval_mask)),
@@ -119,7 +212,7 @@ def main() -> None:
     with results_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(
             fh,
-            fieldnames=["dataset_id", "noise_sigma", "algorithm", "rmse", "nrmse", "eval_count"],
+            fieldnames=["dataset_id", "noise_sigma", "algorithm", "status", "error", "rmse", "nrmse", "eval_count"],
         )
         writer.writeheader()
         writer.writerows(rows)
@@ -129,4 +222,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

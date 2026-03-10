@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,56 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _save_dataset_snapshot(output_dir: Path, preset_id: str, benchmark: Any, preset: Any) -> Path:
+    snapshot_dir = output_dir / "repro" / preset_id / "dataset"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    np.save(snapshot_dir / "clean_signal.npy", benchmark.clean_signal)
+    np.save(snapshot_dir / "observed_signal.npy", benchmark.observed_signal)
+    np.save(snapshot_dir / "missing_mask.npy", benchmark.missing_mask.astype(bool))
+    np.save(snapshot_dir / "hankel_observed.npy", benchmark.hankel_observed)
+    save_json(
+        snapshot_dir / "dataset_meta.json",
+        {
+            "preset_id": preset_id,
+            "params": preset.params,
+            "signal_model": preset.signal_model,
+            "mask_type": preset.mask_type,
+            "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return snapshot_dir
+
+
+def _save_algorithm_artifacts(
+    output_dir: Path,
+    preset_id: str,
+    algorithm: str,
+    reconstructed: np.ndarray | None,
+    missing_mask: np.ndarray,
+    clean_signal: np.ndarray,
+    status: str,
+    error: str,
+    algo_params: dict[str, Any],
+) -> None:
+    algo_dir = output_dir / "repro" / preset_id / "algorithms" / algorithm
+    algo_dir.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "preset_id": preset_id,
+        "algorithm": algorithm,
+        "status": status,
+        "error": error,
+        "algorithm_params": algo_params,
+        "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if reconstructed is not None:
+        np.save(algo_dir / "reconstructed_signal.npy", reconstructed)
+        miss = missing_mask.astype(bool)
+        np.save(algo_dir / "eval_true_values.npy", clean_signal[miss])
+        np.save(algo_dir / "eval_pred_values.npy", reconstructed[miss])
+        payload["eval_count"] = int(np.sum(miss))
+    save_json(algo_dir / "artifacts_meta.json", payload)
+
+
 def main() -> None:
     args = build_parser().parse_args()
     soft_params: dict[str, Any] = json.loads(args.soft_impute_params_json)
@@ -59,6 +110,7 @@ def main() -> None:
             params=preset.params,
             seed=args.seed,
         )
+        _save_dataset_snapshot(output_dir=args.output_dir, preset_id=preset_id, benchmark=benchmark, preset=preset)
         rank = int(preset.params.get("rank", 8))
         sigma = float(preset.params.get("noise_sigma", np.nan))
         miss = float(preset.params.get("missing_fraction", np.nan))
@@ -78,34 +130,76 @@ def main() -> None:
             elif algo == "cadzow":
                 algo_params = dict(cadzow_params)
 
-            reconstructed = reconstruct_signal_with_method(
-                hankel_observed=benchmark.hankel_observed,
-                algorithm_name=algo,
-                algorithm_params=algo_params,
-                hankel_rank=rank,
-            )
-            metrics = evaluate_reconstruction(
-                clean_signal=benchmark.clean_signal,
-                reconstructed_signal=reconstructed,
-                missing_mask=benchmark.missing_mask,
-            )
+            try:
+                reconstructed = reconstruct_signal_with_method(
+                    hankel_observed=benchmark.hankel_observed,
+                    algorithm_name=algo,
+                    algorithm_params=algo_params,
+                    hankel_rank=rank,
+                )
+                metrics = evaluate_reconstruction(
+                    clean_signal=benchmark.clean_signal,
+                    reconstructed_signal=reconstructed,
+                    missing_mask=benchmark.missing_mask,
+                )
 
-            if args.save_signals:
-                np.save(args.output_dir / "signals" / preset_id / f"{algo}_reconstructed.npy", reconstructed)
+                if args.save_signals:
+                    np.save(args.output_dir / "signals" / preset_id / f"{algo}_reconstructed.npy", reconstructed)
+                _save_algorithm_artifacts(
+                    output_dir=args.output_dir,
+                    preset_id=preset_id,
+                    algorithm=algo,
+                    reconstructed=reconstructed,
+                    missing_mask=benchmark.missing_mask,
+                    clean_signal=benchmark.clean_signal,
+                    status="ok",
+                    error="",
+                    algo_params=algo_params,
+                )
 
-            rows.append(
-                {
-                    "preset_id": preset_id,
-                    "algorithm": algo,
-                    "noise_sigma": sigma,
-                    "missing_fraction": miss,
-                    "signal_model": preset.signal_model,
-                    "mask_type": preset.mask_type,
-                    "rmse_all": metrics["rmse_all"],
-                    "rmse_missing": metrics["rmse_missing"],
-                    "nrmse_missing": metrics["nrmse_missing"],
-                }
-            )
+                rows.append(
+                    {
+                        "preset_id": preset_id,
+                        "algorithm": algo,
+                        "noise_sigma": sigma,
+                        "missing_fraction": miss,
+                        "signal_model": preset.signal_model,
+                        "mask_type": preset.mask_type,
+                        "status": "ok",
+                        "error": "",
+                        "rmse_all": metrics["rmse_all"],
+                        "rmse_missing": metrics["rmse_missing"],
+                        "nrmse_missing": metrics["nrmse_missing"],
+                    }
+                )
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                _save_algorithm_artifacts(
+                    output_dir=args.output_dir,
+                    preset_id=preset_id,
+                    algorithm=algo,
+                    reconstructed=None,
+                    missing_mask=benchmark.missing_mask,
+                    clean_signal=benchmark.clean_signal,
+                    status="failed",
+                    error=error,
+                    algo_params=algo_params,
+                )
+                rows.append(
+                    {
+                        "preset_id": preset_id,
+                        "algorithm": algo,
+                        "noise_sigma": sigma,
+                        "missing_fraction": miss,
+                        "signal_model": preset.signal_model,
+                        "mask_type": preset.mask_type,
+                        "status": "failed",
+                        "error": error,
+                        "rmse_all": np.nan,
+                        "rmse_missing": np.nan,
+                        "nrmse_missing": np.nan,
+                    }
+                )
 
     csv_path = args.output_dir / "hankel_results.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
@@ -118,6 +212,8 @@ def main() -> None:
                 "missing_fraction",
                 "signal_model",
                 "mask_type",
+                "status",
+                "error",
                 "rmse_all",
                 "rmse_missing",
                 "nrmse_missing",
@@ -130,4 +226,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

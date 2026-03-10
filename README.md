@@ -347,15 +347,20 @@ mcbench run-algorithm \
   --output-dir benchmarks/runs/movie_lens_small/forest_diffusion
 ```
 
-`tab_impute` (via `tabimpute.interface.ImputePFN`) example:
+`tab_impute` (via TabImpute, defaulting to v2) example:
 
 ```bash
 PYTHONPATH=src python -m mcbench.cli run-algorithm \
   --dataset-dir benchmarks/datasets/movie_lens_small \
   --algorithm tab_impute \
-  --params-json '{"device":"cpu","num_repeats":1}' \
+  --params-json '{"device":"cpu","model_version":2,"v2_checkpoint_path":"/path/to/tabimpute_v2.ckpt","num_repeats":1}' \
   --output-dir benchmarks/runs/movie_lens_small/tab_impute
 ```
+
+Notes:
+- `model_version` defaults to `2`.
+- v2 requires `checkpoint_path` (or `v2_checkpoint_path`).
+- If no v2 checkpoint is provided and `allow_v1_fallback=true`, it falls back to v1.
 
 ## Built-in Metrics
 
@@ -454,30 +459,52 @@ PYTHONPATH=src python scripts/prepare_ckd_ehr_tabular_benchmark.py \
   --test-fraction 0.2
 ```
 
-Run imputation + multiple-imputation evaluation + downstream regression:
+Run imputation + downstream classification in one pass:
 
 ```bash
-PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
+PYTHONPATH=src python scripts/run_ckd_ehr_classification_benchmark.py \
   --dataset-root benchmarks/datasets/ckd_ehr_regression \
   --output-root benchmarks/reports/ckd_ehr_regression \
   --algorithms global_mean,row_mean,soft_impute,tab_impute \
+  --stage all \
   --num-imputations 5
+```
+
+Decoupled workflow (recommended for slow imputers):
+
+```bash
+# Step 1: run imputations only (saves <algo>_prediction.npy files).
+PYTHONPATH=src python scripts/run_ckd_ehr_classification_benchmark.py \
+  --dataset-root benchmarks/datasets/ckd_ehr_regression \
+  --output-root benchmarks/reports/ckd_ehr_regression \
+  --algorithms global_mean,row_mean,soft_impute,tab_impute \
+  --stage impute \
+  --num-imputations 5
+
+# Step 2: run classification only from saved imputations.
+PYTHONPATH=src python scripts/run_ckd_ehr_classification_benchmark.py \
+  --dataset-root benchmarks/datasets/ckd_ehr_regression \
+  --output-root benchmarks/reports/ckd_ehr_regression \
+  --algorithms global_mean,row_mean,soft_impute,tab_impute \
+  --stage evaluate
 ```
 
 To include the `mi_gaussian` multiple-imputation baseline (opt-in):
 
 ```bash
-PYTHONPATH=src python scripts/run_ckd_ehr_regression_benchmark.py \
+PYTHONPATH=src python scripts/run_ckd_ehr_classification_benchmark.py \
   --dataset-root benchmarks/datasets/ckd_ehr_regression \
   --output-root benchmarks/reports/ckd_ehr_regression \
   --algorithms global_mean,row_mean,soft_impute,tab_impute \
+  --stage all \
   --num-imputations 5 \
   --include-mi-gaussian
 ```
 
-The script writes per-bundle JSON outputs and a summary CSV:
+The script writes per-bundle JSON outputs and summary CSVs:
 
-- `benchmarks/reports/ckd_ehr_regression/ckd_ehr_regression_summary.csv`
+- `benchmarks/reports/ckd_ehr_regression/ckd_ehr_classification_summary.csv`
+- `benchmarks/reports/ckd_ehr_regression/ckd_ehr_imputation_summary.csv`
 
 Prepare a tabular benchmark bundle with downstream train/test row masks:
 

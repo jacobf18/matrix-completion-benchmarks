@@ -24,6 +24,7 @@ const jsonChart = document.getElementById("jsonChart");
 const jsonTableBody = document.querySelector("#jsonResultsTable tbody");
 const jsonTableWrap = document.querySelector("#jsonResultsTable")?.closest(".table-wrap");
 const loadDemoCsvBtn = document.getElementById("loadDemoCsvBtn");
+const loadRuntimeCsvBtn = document.getElementById("loadRuntimeCsvBtn");
 const loadDemoJsonBtn = document.getElementById("loadDemoJsonBtn");
 const demoStatus = document.getElementById("demoStatus");
 
@@ -86,6 +87,9 @@ if (jsonMetricSelect) {
 }
 if (loadDemoCsvBtn) {
   loadDemoCsvBtn.addEventListener("click", () => loadDemoCsv());
+}
+if (loadRuntimeCsvBtn) {
+  loadRuntimeCsvBtn.addEventListener("click", () => loadCkdRuntimePlot());
 }
 if (loadDemoJsonBtn) {
   loadDemoJsonBtn.addEventListener("click", () => loadDemoJson());
@@ -320,7 +324,7 @@ function renderChart() {
 
   const w = 900;
   const h = 380;
-  const m = { left: 62, right: 24, top: 20, bottom: 48 };
+  const m = { left: 62, right: 24, top: 42, bottom: 48 };
   const cw = w - m.left - m.right;
   const ch = h - m.top - m.bottom;
 
@@ -345,7 +349,7 @@ function renderChart() {
     drawText(x - 15, h - 16, xVal.toFixed(3), 12, "#6b7280");
   }
 
-  drawText(8, 18, metric.toUpperCase(), 13, "#334155", "700");
+  drawText(8, 20, metric.toUpperCase(), 13, "#334155", "700");
   drawText(w / 2 - 80, h - 4, xAxis, 12, "#334155");
 
   const seriesForPlot = seriesView === "raw" ? rawSeries : aggregatedSeries;
@@ -627,7 +631,7 @@ function renderJsonChart() {
 
   const w = 900;
   const h = 340;
-  const m = { left: 60, right: 25, top: 30, bottom: 70 };
+  const m = { left: 60, right: 25, top: 50, bottom: 70 };
   const cw = w - m.left - m.right;
   const ch = h - m.top - m.bottom;
   const maxVal = Math.max(...data.map((d) => d.value));
@@ -636,7 +640,7 @@ function renderJsonChart() {
 
   drawJsonLine(m.left, m.top, m.left, h - m.bottom, "#c6bea9", 1);
   drawJsonLine(m.left, h - m.bottom, w - m.right, h - m.bottom, "#c6bea9", 1);
-  drawJsonText(10, 20, metricKey, 13, "#334155", "700");
+  drawJsonText(10, 22, metricKey, 13, "#334155", "700");
 
   data.forEach((d, idx) => {
     const x = m.left + idx * (barW + gap) + gap * 0.5;
@@ -799,6 +803,50 @@ async function loadDemoJson() {
   populateJsonMetricSelector();
   renderJsonExplorer();
   setDemoStatus(`Loaded ${entries.length} demo JSON file(s) from website/data/.`);
+}
+
+async function loadCkdRuntimePlot() {
+  const path = "./data/ckd_ehr_classification_sweep_summary.csv";
+  try {
+    const res = await fetch(path, { cache: "no-store" });
+    if (!res.ok) {
+      setDemoStatus(`Unable to load ${path} (HTTP ${res.status}).`);
+      return;
+    }
+    const text = await res.text();
+    const parsed = parseCsv(text);
+    if (parsed.rows.length === 0) {
+      setDemoStatus(`Loaded ${path}, but it is empty.`);
+      return;
+    }
+
+    state.rows = parsed.rows;
+    state.headers = parsed.headers;
+    state.numericColumns = parsed.numericColumns;
+    populateSelectors();
+
+    if (xAxisSelect && state.numericColumns.includes("missing_fraction")) {
+      xAxisSelect.value = "missing_fraction";
+    }
+    const runtimeMetric = state.numericColumns.includes("imputation_runtime_seconds")
+      ? "imputation_runtime_seconds"
+      : (state.numericColumns.includes("downstream_runtime_seconds") ? "downstream_runtime_seconds" : null);
+    if (!runtimeMetric) {
+      render();
+      setDemoStatus(`Loaded ${path}, but no runtime columns are present yet.`);
+      return;
+    }
+    if (metricSelect) {
+      metricSelect.value = runtimeMetric;
+    }
+    if (seriesViewSelect) {
+      seriesViewSelect.value = "summary";
+    }
+    render();
+    setDemoStatus(`Loaded runtime plot from ${path} (${runtimeMetric} vs missing_fraction).`);
+  } catch {
+    setDemoStatus(`Failed to load ${path}.`);
+  }
 }
 
 function setDemoStatus(message) {

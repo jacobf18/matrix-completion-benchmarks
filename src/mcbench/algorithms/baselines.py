@@ -85,6 +85,85 @@ class RowMeanImputer(MatrixCompletionAlgorithm):
         return out
 
 
+@ALGORITHM_REGISTRY.register("col_mean")
+class ColumnMeanImputer(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        out = observed.astype(np.float64, copy=True)
+        finite = np.isfinite(out)
+        if not np.any(finite):
+            raise ValueError("Input has no finite entries to estimate fill values.")
+        global_mean = float(np.nanmean(out))
+        col_means = np.nanmean(out, axis=0)
+        col_means = np.where(np.isfinite(col_means), col_means, global_mean)
+        missing_rows, missing_cols = np.where(~finite)
+        out[missing_rows, missing_cols] = col_means[missing_cols]
+        return out
+
+
+@ALGORITHM_REGISTRY.register("col_mode")
+class ColumnModeImputer(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        out = observed.astype(np.float64, copy=True)
+        finite = np.isfinite(out)
+        if not np.any(finite):
+            raise ValueError("Input has no finite entries to estimate fill values.")
+
+        global_mean = float(np.nanmean(out))
+        fill_values = np.full(out.shape[1], global_mean, dtype=np.float64)
+
+        for col in range(out.shape[1]):
+            vals = out[finite[:, col], col]
+            if vals.size == 0:
+                continue
+            unique_vals, counts = np.unique(vals, return_counts=True)
+            mode_candidates = unique_vals[counts == np.max(counts)]
+            fill_values[col] = float(np.min(mode_candidates))
+
+        missing_rows, missing_cols = np.where(~finite)
+        out[missing_rows, missing_cols] = fill_values[missing_cols]
+        return out
+
+
+@ALGORITHM_REGISTRY.register("knn")
+class KNNImputerBaseline(MatrixCompletionAlgorithm):
+    def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
+        try:
+            from sklearn.impute import KNNImputer
+        except ImportError as exc:
+            raise ImportError(
+                "knn requires optional dependency 'scikit-learn'. "
+                "Install with: pip install scikit-learn"
+            ) from exc
+
+        data = observed.astype(np.float64, copy=True)
+        if not np.any(~np.isfinite(data)):
+            return data
+
+        # KNNImputer drops columns that are entirely missing; prefill to preserve shape.
+        finite_per_col = np.any(np.isfinite(data), axis=0)
+        if not np.all(finite_per_col):
+            finite_counts = np.sum(np.isfinite(data), axis=0)
+            finite_sums = np.nansum(data, axis=0)
+            col_means = np.divide(
+                finite_sums,
+                finite_counts,
+                out=np.full(data.shape[1], np.nan, dtype=np.float64),
+                where=finite_counts > 0,
+            )
+            global_mean = float(np.nanmean(data))
+            col_means = np.where(np.isfinite(col_means), col_means, global_mean)
+            missing_cols = np.flatnonzero(~finite_per_col)
+            for col in missing_cols:
+                data[:, col] = col_means[col]
+
+        imputer = KNNImputer(
+            n_neighbors=int(kwargs.get("n_neighbors", 5)),
+            weights=str(kwargs.get("weights", "uniform")),
+            metric=str(kwargs.get("metric", "nan_euclidean")),
+        )
+        return np.asarray(imputer.fit_transform(data), dtype=np.float64)
+
+
 @ALGORITHM_REGISTRY.register("soft_impute")
 class SoftImpute(MatrixCompletionAlgorithm):
     def complete(self, observed: np.ndarray, **kwargs: object) -> np.ndarray:
@@ -180,6 +259,15 @@ class HyperImputeBaseline(MatrixCompletionAlgorithm):
         if not np.any(~np.isfinite(data)):
             return data
 
+        # HyperImpute plugins can fail when a column is entirely missing.
+        finite_per_col = np.any(np.isfinite(data), axis=0)
+        if not np.all(finite_per_col):
+            col_means = np.nanmean(data, axis=0)
+            col_means = np.where(np.isfinite(col_means), col_means, 0.0)
+            missing_cols = np.flatnonzero(~finite_per_col)
+            for col in missing_cols:
+                data[:, col] = col_means[col]
+
         plugin_kwargs = dict(kwargs)
         plugin = Imputers().get("hyperimpute", **plugin_kwargs)
         transformed = plugin.fit_transform(pd.DataFrame(data))
@@ -201,6 +289,15 @@ class MissForestBaseline(MatrixCompletionAlgorithm):
         data = observed.astype(np.float64, copy=True)
         if not np.any(~np.isfinite(data)):
             return data
+
+        # MissForest can fail when a column is entirely missing.
+        finite_per_col = np.any(np.isfinite(data), axis=0)
+        if not np.all(finite_per_col):
+            col_means = np.nanmean(data, axis=0)
+            col_means = np.where(np.isfinite(col_means), col_means, 0.0)
+            missing_cols = np.flatnonzero(~finite_per_col)
+            for col in missing_cols:
+                data[:, col] = col_means[col]
 
         plugin_kwargs = dict(kwargs)
         plugin = Imputers().get("missforest", **plugin_kwargs)
@@ -245,15 +342,44 @@ class TabImputePFNBaseline(MatrixCompletionAlgorithm):
         if not np.any(~np.isfinite(data)):
             return data
 
-        model = ImputePFN(
-            device=str(kwargs.get("device", "cpu")),
-            nhead=int(kwargs.get("nhead", 2)),
-            checkpoint_path=kwargs.get("checkpoint_path"),
-            max_num_rows=kwargs.get("max_num_rows"),
-            max_num_chunks=kwargs.get("max_num_chunks"),
-            verbose=bool(kwargs.get("verbose", False)),
-        )
+        device = str(kwargs.get("device", "cpu"))
+        nhead = int(kwargs.get("nhead", 2))
+        checkpoint_path = kwargs.get("checkpoint_path")
+        max_num_rows = kwargs.get("max_num_rows")
+        max_num_chunks = kwargs.get("max_num_chunks")
+        verbose = bool(kwargs.get("verbose", False))
         num_repeats = int(kwargs.get("num_repeats", 1))
+        model_version = str(kwargs.get("model_version", "2")).strip().lower()
+
+        model: object
+        if model_version in {"2", "v2"}:
+            checkpoint_path_v2 = kwargs.get("v2_checkpoint_path", checkpoint_path)
+            try:
+                from tabimpute.tabimpute_v2 import TabImputeV2
+            except ImportError as exc:
+                raise ImportError(
+                    "tab_impute model_version=2 requires tabimpute.tabimpute_v2.TabImputeV2."
+                ) from exc
+            model = TabImputeV2(
+                device=device,
+                nhead=nhead,
+                checkpoint_path=checkpoint_path_v2,
+                max_num_rows=max_num_rows,
+                max_num_chunks=max_num_chunks,
+                verbose=verbose,
+            )
+        elif model_version in {"1", "v1"}:
+            model = ImputePFN(
+                device=device,
+                nhead=nhead,
+                checkpoint_path=checkpoint_path,
+                max_num_rows=max_num_rows,
+                max_num_chunks=max_num_chunks,
+                verbose=verbose,
+            )
+        else:
+            raise ValueError(f"Unknown tab_impute model_version '{model_version}'. Use 1 or 2.")
+
         output = model.impute(data, return_full=False, num_repeats=num_repeats)
 
         pred = np.asarray(output, dtype=np.float64)
