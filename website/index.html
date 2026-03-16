@@ -152,6 +152,31 @@
         </div>
       </section>
 
+      <section class="panel" id="noisy-demo">
+        <h2>Noisy Matrix Completion Demo</h2>
+        <p class="hint">
+          Auto-loaded from <code>website/data/synthetic_denoise_results.csv</code>. This table tracks the saved
+          synthetic Gaussian noisy matrix completion benchmark, including the standalone <code>tab_impute_v2</code>
+          CUDA run.
+        </p>
+        <p id="noisyDemoStatus" class="hint"></p>
+        <div class="table-wrap">
+          <table id="noisyDemoTable">
+            <thead>
+              <tr>
+                <th>Preset</th>
+                <th>Algorithm</th>
+                <th>Noise Sigma</th>
+                <th>NRMSE</th>
+                <th>RMSE</th>
+                <th>Runs</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel" id="tabular-explorer">
         <h2>Tabular Eval Explorer (JSON)</h2>
         <p class="hint">

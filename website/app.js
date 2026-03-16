@@ -23,6 +23,9 @@ const jsonMetricSelect = document.getElementById("jsonMetricSelect");
 const jsonChart = document.getElementById("jsonChart");
 const jsonTableBody = document.querySelector("#jsonResultsTable tbody");
 const jsonTableWrap = document.querySelector("#jsonResultsTable")?.closest(".table-wrap");
+const noisyDemoTableBody = document.querySelector("#noisyDemoTable tbody");
+const noisyDemoTableWrap = document.querySelector("#noisyDemoTable")?.closest(".table-wrap");
+const noisyDemoStatus = document.getElementById("noisyDemoStatus");
 const loadDemoCsvBtn = document.getElementById("loadDemoCsvBtn");
 const loadRuntimeCsvBtn = document.getElementById("loadRuntimeCsvBtn");
 const loadDemoJsonBtn = document.getElementById("loadDemoJsonBtn");
@@ -743,12 +746,12 @@ function safeDen(v) {
 
 async function loadDemoCsv() {
   const candidates = [
+    "./data/synthetic_denoise_results.csv",
+    "./data/noise_sweep_results.csv",
     "./data/ckd_ehr_classification_sweep_summary.csv",
     "./data/ckd_ehr_regression_sweep_summary.csv",
     "./data/ckd_ehr_regression_prelim_summary.csv",
     "./data/ckd_ehr_classification_prelim_summary.csv",
-    "./data/synthetic_denoise_results.csv",
-    "./data/noise_sweep_results.csv",
     "./data/hankel_results.csv",
   ];
   for (const path of candidates) {
@@ -774,6 +777,64 @@ async function loadDemoCsv() {
     }
   }
   setDemoStatus("No demo CSV found in website/data/. Add noise_sweep_results.csv or hankel_results.csv.");
+}
+
+async function loadNoisyDemoTable() {
+  if (!noisyDemoTableBody) {
+    return;
+  }
+  const path = "./data/synthetic_denoise_results.csv";
+  try {
+    const res = await fetch(path, { cache: "no-store" });
+    if (!res.ok) {
+      setNoisyDemoStatus(`Unable to load ${path} (HTTP ${res.status}).`);
+      noisyDemoTableBody.innerHTML = '<tr><td colspan="6">No noisy-matrix demo CSV available.</td></tr>';
+      updateTableScrollState(noisyDemoTableBody, noisyDemoTableWrap);
+      return;
+    }
+    const text = await res.text();
+    const parsed = parseCsv(text);
+    const rows = parsed.rows
+      .filter((row) => String(row.noise_type ?? "") === "gaussian")
+      .sort((a, b) => {
+        const sigmaDiff = Number(a.noise_sigma) - Number(b.noise_sigma);
+        if (sigmaDiff !== 0) {
+          return sigmaDiff;
+        }
+        const metricDiff = Number(a.nrmse) - Number(b.nrmse);
+        if (metricDiff !== 0) {
+          return metricDiff;
+        }
+        return String(a.algorithm ?? "").localeCompare(String(b.algorithm ?? ""));
+      });
+
+    noisyDemoTableBody.innerHTML = "";
+    if (rows.length === 0) {
+      noisyDemoTableBody.innerHTML = '<tr><td colspan="6">No Gaussian noisy-matrix rows found.</td></tr>';
+      updateTableScrollState(noisyDemoTableBody, noisyDemoTableWrap);
+      setNoisyDemoStatus(`Loaded ${path}, but no Gaussian noisy-matrix rows were present.`);
+      return;
+    }
+
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(String(row.preset_id ?? "-"))}</td>
+        <td>${escapeHtml(String(row.algorithm ?? "-"))}</td>
+        <td>${formatNum(Number(row.noise_sigma))}</td>
+        <td>${formatNum(Number(row.nrmse))}</td>
+        <td>${formatNum(Number(row.rmse))}</td>
+        <td>${escapeHtml(String(row.num_runs ?? "-"))}</td>
+      `;
+      noisyDemoTableBody.appendChild(tr);
+    }
+    updateTableScrollState(noisyDemoTableBody, noisyDemoTableWrap);
+    setNoisyDemoStatus(`Loaded noisy matrix demo table from ${path}.`);
+  } catch {
+    noisyDemoTableBody.innerHTML = '<tr><td colspan="6">Failed to load noisy-matrix demo CSV.</td></tr>';
+    updateTableScrollState(noisyDemoTableBody, noisyDemoTableWrap);
+    setNoisyDemoStatus(`Failed to load ${path}.`);
+  }
 }
 
 async function loadDemoJson() {
@@ -855,5 +916,13 @@ function setDemoStatus(message) {
   }
 }
 
+function setNoisyDemoStatus(message) {
+  if (noisyDemoStatus) {
+    noisyDemoStatus.textContent = message;
+  }
+}
+
 render();
 renderJsonExplorer();
+loadDemoCsv();
+loadNoisyDemoTable();
