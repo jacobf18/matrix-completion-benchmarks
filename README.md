@@ -46,7 +46,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Install imputation extras for `soft_impute`, `nuclear_norm_minimization`, `hyperimpute`, `missforest`, `forest_diffusion`, and `tab_impute`:
+Install imputation extras for `soft_impute`, `svt`, `nuclear_norm_minimization`, `robust_pca`, `hyperimpute`, `missforest`, `forest_diffusion`, and `tab_impute`:
 
 ```bash
 pip install -e '.[impute]'
@@ -137,14 +137,14 @@ One-shot bash helper:
 scripts/download_benchmarks.sh
 ```
 
-## Synthetic Noise Sweep (Global Mean vs SoftImpute)
+## Synthetic Noise Sweep
 
 Run a Gaussian noise-level sweep on simulated low-rank data:
 
 ```bash
 PYTHONPATH=src python scripts/run_synthetic_noise_sweep.py \
   --noise-levels 0.05,0.1,0.2,0.35,0.5 \
-  --algorithms global_mean soft_impute
+  --algorithms global_mean soft_impute svt robust_pca
 ```
 
 This writes:
@@ -180,7 +180,7 @@ Choose a custom algorithm subset:
 
 ```bash
 scripts/run_synthetic_denoise_e2e.sh \
-  --algorithms "global_mean soft_impute missforest"
+  --algorithms "global_mean soft_impute svt robust_pca missforest"
 ```
 
 You can also set seeds/presets:
@@ -189,7 +189,7 @@ You can also set seeds/presets:
 scripts/run_synthetic_denoise_e2e.sh \
   --seeds "0,1,2,3" \
   --preset-ids "sim_lr_gaussian_low sim_lr_gaussian_medium" \
-  --algorithms "global_mean row_mean soft_impute"
+  --algorithms "global_mean row_mean soft_impute svt robust_pca"
 ```
 
 Outputs:
@@ -289,7 +289,9 @@ This separation lets you run slow algorithms once, then evaluate many metric set
 - `global_mean`
 - `row_mean`
 - `soft_impute`
+- `svt`
 - `nuclear_norm_minimization`
+- `robust_pca`
 - `hyperimpute`
 - `missforest`
 - `forest_diffusion`
@@ -319,6 +321,26 @@ mcbench run-algorithm \
   --algorithm nuclear_norm_minimization \
   --params-json '{"max_iters": 5000, "error_tolerance": 1e-7, "min_value": 0.0, "max_value": 5.0}' \
   --output-dir benchmarks/runs/movie_lens_small/nuclear_norm_minimization
+```
+
+`svt` parameters (vendored from a public GitHub implementation of Singular Value Thresholding) example:
+
+```bash
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm svt \
+  --params-json '{"tau": 150.0, "delta": 1.2, "max_iters": 500, "eps": 1e-3}' \
+  --output-dir benchmarks/runs/movie_lens_small/svt
+```
+
+`robust_pca` parameters (wrapper around the external `rpca` package) example:
+
+```bash
+mcbench run-algorithm \
+  --dataset-dir benchmarks/datasets/movie_lens_small \
+  --algorithm robust_pca \
+  --params-json '{"max_iters": 1000, "tol": 1e-7}' \
+  --output-dir benchmarks/runs/movie_lens_small/robust_pca
 ```
 
 `hyperimpute` and `missforest` (both via `hyperimpute.plugins.imputers`) examples:

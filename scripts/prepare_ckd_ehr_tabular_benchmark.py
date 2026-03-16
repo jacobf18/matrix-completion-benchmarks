@@ -9,6 +9,9 @@ import numpy as np
 from mcbench.datasets.missingness import apply_missingness, generate_missingness_mask
 from mcbench.io import save_json, save_mask, save_matrix
 
+CKD_EGFR_CENSOR_PATTERN = "ckd_egfr_censor_gt100"
+CKD_EGFR_CENSOR_THRESHOLD = 100.0
+
 
 def _parse_csv_list(raw: str, cast):
     vals = []
@@ -109,6 +112,12 @@ def _feature_columns(n_cols: int, target_col: int) -> list[int]:
     return [c for c in range(n_cols) if c != target_col]
 
 
+def _fractions_for_pattern(pattern: str, fractions: list[float]) -> list[float | None]:
+    if pattern == CKD_EGFR_CENSOR_PATTERN:
+        return [None]
+    return [float(f) for f in fractions]
+
+
 def _train_test_split(n_rows: int, test_fraction: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(seed)
     order = rng.permutation(n_rows)
@@ -144,7 +153,10 @@ def main() -> None:
         default="",
         help="Comma-separated columns to drop from features before encoding.",
     )
-    parser.add_argument("--patterns", default="mcar,mar_logistic,mnar_self_logistic,block,bursty")
+    parser.add_argument(
+        "--patterns",
+        default=f"mcar,mar_logistic,mnar_self_logistic,block,bursty,{CKD_EGFR_CENSOR_PATTERN}",
+    )
     parser.add_argument("--missing-fractions", default="0.1,0.2,0.4")
     parser.add_argument("--seeds", default="0,1,2")
     parser.add_argument("--test-fraction", type=float, default=0.2)
@@ -215,11 +227,21 @@ def main() -> None:
             "feature_columns": col_names[:target_col],
         },
     )
+    egfr_feature_col = None
+    if "eGFRBaseline" in col_names[:target_col]:
+        egfr_feature_col = col_names.index("eGFRBaseline")
+    if CKD_EGFR_CENSOR_PATTERN in patterns and egfr_feature_col is None:
+        raise ValueError(
+            f"Pattern '{CKD_EGFR_CENSOR_PATTERN}' requires encoded feature 'eGFRBaseline', but it was not found."
+        )
 
     for pattern in patterns:
-        for fraction in fractions:
+        for fraction in _fractions_for_pattern(pattern, fractions):
             for seed in seeds:
-                bundle_id = f"pattern_{pattern}__frac_{fraction:.3f}__seed_{seed}".replace(".", "p")
+                if fraction is None:
+                    bundle_id = f"pattern_{pattern}__deterministic__seed_{seed}"
+                else:
+                    bundle_id = f"pattern_{pattern}__frac_{fraction:.3f}__seed_{seed}".replace(".", "p")
                 out_dir = args.output_root / bundle_id
                 train_mask, test_mask = _train_test_split(
                     n_rows=matrix.shape[0], test_fraction=args.test_fraction, seed=seed
@@ -232,15 +254,19 @@ def main() -> None:
 
                 train_feature_mask = generate_missingness_mask(
                     matrix=matrix[np.ix_(train_idx, feature_cols)],
-                    kind=pattern,
-                    missing_fraction=fraction,
+                    kind="censor_above_threshold" if pattern == CKD_EGFR_CENSOR_PATTERN else pattern,
+                    missing_fraction=0.0 if fraction is None else float(fraction),
                     seed=seed,
+                    feature_col=egfr_feature_col if pattern == CKD_EGFR_CENSOR_PATTERN else None,
+                    censor_threshold=CKD_EGFR_CENSOR_THRESHOLD,
                 )
                 test_feature_mask = generate_missingness_mask(
                     matrix=matrix[np.ix_(test_idx, feature_cols)],
-                    kind=pattern,
-                    missing_fraction=fraction,
+                    kind="censor_above_threshold" if pattern == CKD_EGFR_CENSOR_PATTERN else pattern,
+                    missing_fraction=0.0 if fraction is None else float(fraction),
                     seed=seed + 10_000,
+                    feature_col=egfr_feature_col if pattern == CKD_EGFR_CENSOR_PATTERN else None,
+                    censor_threshold=CKD_EGFR_CENSOR_THRESHOLD,
                 )
                 eval_mask[np.ix_(train_idx, feature_cols)] = train_feature_mask
                 eval_mask[np.ix_(test_idx, feature_cols)] = test_feature_mask
@@ -267,10 +293,14 @@ def main() -> None:
                     {
                         "task": "regression",
                         "pattern": pattern,
-                        "missing_fraction": float(fraction),
+                        "missing_fraction": None if fraction is None else float(fraction),
                         "seed": int(seed),
                         "target_col": int(target_col),
                         "target_column": args.target_column,
+                        "censor_feature_column": "eGFRBaseline" if pattern == CKD_EGFR_CENSOR_PATTERN else None,
+                        "censor_threshold": (
+                            CKD_EGFR_CENSOR_THRESHOLD if pattern == CKD_EGFR_CENSOR_PATTERN else None
+                        ),
                         "feature_cols": feature_cols,
                         "n_train_rows": int(train_idx.size),
                         "n_test_rows": int(test_idx.size),

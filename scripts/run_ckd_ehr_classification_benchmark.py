@@ -21,6 +21,11 @@ from mcbench.workflows.tabular import (
 )
 
 
+def _progress(msg: str, *, quiet: bool = False) -> None:
+    if not quiet:
+        print(msg, flush=True)
+
+
 def _parse_csv_list(raw: str, cast):
     vals = []
     for token in raw.split(","):
@@ -47,6 +52,12 @@ def _metric_summary_row(
     method: str,
     metrics: dict[str, float],
 ) -> dict[str, Any]:
+    metrics_with_aliases = dict(metrics)
+    for key, val in list(metrics.items()):
+        if key.startswith("downstream_average_precision_"):
+            pr_auc_key = key.replace("downstream_average_precision_", "downstream_pr_auc_", 1)
+            metrics_with_aliases[pr_auc_key] = val
+
     row: dict[str, Any] = {
         "bundle": str(bundle_meta.get("bundle_id", "")),
         "pattern": bundle_meta.get("pattern", ""),
@@ -54,7 +65,7 @@ def _metric_summary_row(
         "seed": bundle_meta.get("seed", ""),
         "method": method,
     }
-    row.update(metrics)
+    row.update(metrics_with_aliases)
     return row
 
 
@@ -243,6 +254,11 @@ def main() -> None:
         action="store_true",
         help="During --stage impute/all, do not rerun an algorithm if <algo>_prediction.npy already exists.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rerun and overwrite even when output files for an algorithm already exist.",
+    )
     parser.add_argument("--num-imputations", type=int, default=5)
     parser.add_argument("--mi-seed", type=int, default=7)
     parser.add_argument("--task", choices=["classification", "regression"], default="classification")
@@ -251,6 +267,7 @@ def main() -> None:
         action="store_true",
         help="Include the mi_gaussian multiple-imputation baseline in outputs.",
     )
+    parser.add_argument("--quiet", action="store_true", help="Suppress progress output.")
     args = parser.parse_args()
 
     algorithm_names = _parse_csv_list(args.algorithms, str)
@@ -269,6 +286,7 @@ def main() -> None:
             "algorithm_params": algorithm_params,
             "stage": args.stage,
             "skip_existing_imputations": bool(args.skip_existing_imputations),
+            "force": bool(args.force),
             "imputation_split_mode": args.imputation_split_mode,
             "num_imputations": args.num_imputations,
             "mi_seed": args.mi_seed,
@@ -280,10 +298,20 @@ def main() -> None:
 
     imputation_rows: list[dict[str, Any]] = []
     classification_rows: list[dict[str, Any]] = []
+    n_bundles = len(bundles)
+    _progress(
+        f"Processing {n_bundles} bundles with algorithms: {algorithm_names}",
+        quiet=args.quiet,
+    )
 
-    for bundle_dir in bundles:
+    for bundle_idx, bundle_dir in enumerate(bundles, start=1):
         meta = json.loads((bundle_dir / "dataset_meta.json").read_text())
         meta["bundle_id"] = bundle_dir.name
+        _progress(
+            f"  [{bundle_idx}/{n_bundles}] {bundle_dir.name} "
+            f"(pattern={meta.get('pattern', '')}, missing={meta.get('missing_fraction', '')})",
+            quiet=args.quiet,
+        )
 
         y_true = load_matrix(bundle_dir / "ground_truth.npy")
         observed = load_matrix(bundle_dir / "observed.npy")
@@ -327,12 +355,34 @@ def main() -> None:
                     raise ValueError(f"algorithm params for '{algo_name}' must be an object")
 
                 pred_path = bundle_out / f"{algo_name}_prediction.npy"
+                imputation_eval_path = bundle_out / f"{algo_name}_imputation_eval.json"
+                already_run = pred_path.exists() and imputation_eval_path.exists()
+                if already_run and not args.force:
+                    _progress(f"    impute {algo_name}: skipped (already run)", quiet=args.quiet)
+                    try:
+                        eval_data = json.loads(imputation_eval_path.read_text())
+                        imputation_rows.append(
+                            _metric_summary_row(
+                                bundle_meta=meta,
+                                method=algo_name,
+                                metrics={
+                                    **{f"imputation_{k}": v for k, v in eval_data.get("imputation_metrics", {}).items()},
+                                    "imputation_runtime_seconds": eval_data.get("imputation_runtime_seconds"),
+                                    "status": "ok",
+                                },
+                            )
+                        )
+                    except Exception:
+                        pass
+                    continue
                 try:
                     imputation_runtime_seconds: float | None = None
                     if args.skip_existing_imputations and pred_path.exists():
+                        _progress(f"    impute {algo_name}: loading cached prediction", quiet=args.quiet)
                         pred = load_matrix(pred_path)
                         imputation_runtime_seconds = _load_saved_imputation_runtime(bundle_out, algo_name)
                     else:
+                        _progress(f"    impute {algo_name}: running...", quiet=args.quiet)
                         start = time.perf_counter()
                         pred = _complete_with_split_guard(
                             algo_cls=algo_cls,
@@ -369,7 +419,13 @@ def main() -> None:
                             },
                         )
                     )
+                    rt = imputation_runtime_seconds
+                    _progress(
+                        f"    impute {algo_name}: ok ({rt:.1f}s)" if rt is not None else f"    impute {algo_name}: ok",
+                        quiet=args.quiet,
+                    )
                 except Exception as exc:
+                    _progress(f"    impute {algo_name}: failed ({exc})", quiet=args.quiet)
                     imputation_rows.append(
                         {
                             "bundle": bundle_dir.name,
@@ -390,7 +446,9 @@ def main() -> None:
         if args.stage in {"evaluate", "all"}:
             for algo_name in algorithm_names:
                 pred_path = bundle_out / f"{algo_name}_prediction.npy"
+                classification_eval_path = bundle_out / f"{algo_name}_classification_eval.json"
                 if not pred_path.exists():
+                    _progress(f"    evaluate {algo_name}: skipped (missing prediction)", quiet=args.quiet)
                     classification_rows.append(
                         {
                             "bundle": bundle_dir.name,
@@ -403,7 +461,31 @@ def main() -> None:
                         }
                     )
                     continue
+                already_run = classification_eval_path.exists()
+                if already_run and not args.force:
+                    _progress(f"    evaluate {algo_name}: skipped (already run)", quiet=args.quiet)
+                    try:
+                        eval_data = json.loads(classification_eval_path.read_text())
+                        impute_metrics = eval_data.get("imputation_metrics", {})
+                        down_metrics = eval_data.get("downstream_metrics", {})
+                        classification_rows.append(
+                            _metric_summary_row(
+                                bundle_meta=meta,
+                                method=algo_name,
+                                metrics={
+                                    **{f"imputation_{k}": v for k, v in impute_metrics.items()},
+                                    **down_metrics,
+                                    "imputation_runtime_seconds": eval_data.get("imputation_runtime_seconds"),
+                                    "downstream_runtime_seconds": eval_data.get("downstream_runtime_seconds"),
+                                    "status": "ok",
+                                },
+                            )
+                        )
+                    except Exception:
+                        pass
+                    continue
                 try:
+                    _progress(f"    evaluate {algo_name}: running...", quiet=args.quiet)
                     pred = load_matrix(pred_path)
                     impute_metrics = evaluate_single_imputation_metrics(y_true=y_true, y_pred=pred, eval_mask=eval_mask)
                     imputation_runtime_seconds = _load_saved_imputation_runtime(bundle_out, algo_name)
@@ -449,7 +531,12 @@ def main() -> None:
                             },
                         )
                     )
+                    _progress(
+                        f"    evaluate {algo_name}: ok ({downstream_runtime_seconds:.1f}s)",
+                        quiet=args.quiet,
+                    )
                 except Exception as exc:
+                    _progress(f"    evaluate {algo_name}: failed ({exc})", quiet=args.quiet)
                     classification_rows.append(
                         {
                             "bundle": bundle_dir.name,
@@ -469,80 +556,114 @@ def main() -> None:
 
         if args.include_mi_gaussian:
             if args.stage in {"impute", "all"}:
-                try:
-                    mi_preds = generate_multiple_imputations_gaussian(
-                        observed=observed,
-                        num_imputations=args.num_imputations,
-                        seed=args.mi_seed,
-                    )
-                    for idx, pred in enumerate(mi_preds):
-                        save_matrix(bundle_out / f"mi_gaussian_prediction_{idx:03d}.npy", pred)
+                mi_pred_paths = [bundle_out / f"mi_gaussian_prediction_{idx:03d}.npy" for idx in range(args.num_imputations)]
+                mi_impute_already_run = all(p.exists() for p in mi_pred_paths)
+                if mi_impute_already_run and not args.force:
+                    _progress("    impute mi_gaussian: skipped (already run)", quiet=args.quiet)
                     imputation_rows.append(
                         _metric_summary_row(
                             bundle_meta=meta,
                             method="mi_gaussian",
-                            metrics={"num_imputations": float(len(mi_preds)), "status": "ok"},
+                            metrics={"num_imputations": float(args.num_imputations), "status": "ok"},
                         )
                     )
-                except Exception as exc:
-                    imputation_rows.append(
-                        {
-                            "bundle": bundle_dir.name,
-                            "pattern": meta.get("pattern", ""),
-                            "missing_fraction": meta.get("missing_fraction", ""),
-                            "seed": meta.get("seed", ""),
-                            "method": "mi_gaussian",
-                            "status": "failed",
-                            "error": f"{type(exc).__name__}: {exc}",
-                        }
-                    )
+                else:
+                    try:
+                        _progress("    impute mi_gaussian: running...", quiet=args.quiet)
+                        mi_preds = generate_multiple_imputations_gaussian(
+                            observed=observed,
+                            num_imputations=args.num_imputations,
+                            seed=args.mi_seed,
+                        )
+                        for idx, pred in enumerate(mi_preds):
+                            save_matrix(bundle_out / f"mi_gaussian_prediction_{idx:03d}.npy", pred)
+                        imputation_rows.append(
+                            _metric_summary_row(
+                                bundle_meta=meta,
+                                method="mi_gaussian",
+                                metrics={"num_imputations": float(len(mi_preds)), "status": "ok"},
+                            )
+                        )
+                        _progress("    impute mi_gaussian: ok", quiet=args.quiet)
+                    except Exception as exc:
+                        _progress(f"    impute mi_gaussian: failed ({exc})", quiet=args.quiet)
+                        imputation_rows.append(
+                            {
+                                "bundle": bundle_dir.name,
+                                "pattern": meta.get("pattern", ""),
+                                "missing_fraction": meta.get("missing_fraction", ""),
+                                "seed": meta.get("seed", ""),
+                                "method": "mi_gaussian",
+                                "status": "failed",
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }
+                        )
             if args.stage in {"evaluate", "all"}:
-                try:
-                    mi_preds = []
-                    for idx in range(args.num_imputations):
-                        pred_path = bundle_out / f"mi_gaussian_prediction_{idx:03d}.npy"
-                        if not pred_path.exists():
-                            raise FileNotFoundError(f"missing prediction file: {pred_path}")
-                        mi_preds.append(load_matrix(pred_path))
-                    mi_metrics = evaluate_multiple_imputation_metrics(
-                        y_true=y_true,
-                        y_preds=mi_preds,
-                        eval_mask=eval_mask,
-                        target_col=target_col,
-                        train_row_mask=train_mask,
-                        test_row_mask=test_mask,
-                        task=args.task,
-                    )
-                    save_json(
-                        bundle_out / "mi_gaussian_classification_eval.json",
-                        {
-                            "dataset_dir": str(bundle_dir),
-                            "method": "mi_gaussian",
-                            "task": args.task,
-                            "target_col": target_col,
-                            "num_imputations": args.num_imputations,
-                            "multiple_imputation_metrics": mi_metrics,
-                        },
-                    )
-                    classification_rows.append(
-                        _metric_summary_row(
-                            bundle_meta=meta,
-                            method="mi_gaussian",
-                            metrics={**mi_metrics, "status": "ok"},
+                mi_classification_eval_path = bundle_out / "mi_gaussian_classification_eval.json"
+                if mi_classification_eval_path.exists() and not args.force:
+                    _progress("    evaluate mi_gaussian: skipped (already run)", quiet=args.quiet)
+                    try:
+                        eval_data = json.loads(mi_classification_eval_path.read_text())
+                        mi_metrics = eval_data.get("multiple_imputation_metrics", {})
+                        classification_rows.append(
+                            _metric_summary_row(
+                                bundle_meta=meta,
+                                method="mi_gaussian",
+                                metrics={**mi_metrics, "status": "ok"},
+                            )
                         )
-                    )
-                except Exception as exc:
-                    classification_rows.append(
-                        {
-                            "bundle": bundle_dir.name,
-                            "pattern": meta.get("pattern", ""),
-                            "missing_fraction": meta.get("missing_fraction", ""),
-                            "seed": meta.get("seed", ""),
-                            "method": "mi_gaussian",
-                            "status": "failed",
-                            "error": f"{type(exc).__name__}: {exc}",
-                        }
-                    )
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        _progress("    evaluate mi_gaussian: running...", quiet=args.quiet)
+                        mi_preds = []
+                        for idx in range(args.num_imputations):
+                            pred_path = bundle_out / f"mi_gaussian_prediction_{idx:03d}.npy"
+                            if not pred_path.exists():
+                                raise FileNotFoundError(f"missing prediction file: {pred_path}")
+                            mi_preds.append(load_matrix(pred_path))
+                        mi_metrics = evaluate_multiple_imputation_metrics(
+                            y_true=y_true,
+                            y_preds=mi_preds,
+                            eval_mask=eval_mask,
+                            target_col=target_col,
+                            train_row_mask=train_mask,
+                            test_row_mask=test_mask,
+                            task=args.task,
+                        )
+                        save_json(
+                            bundle_out / "mi_gaussian_classification_eval.json",
+                            {
+                                "dataset_dir": str(bundle_dir),
+                                "method": "mi_gaussian",
+                                "task": args.task,
+                                "target_col": target_col,
+                                "num_imputations": args.num_imputations,
+                                "multiple_imputation_metrics": mi_metrics,
+                            },
+                        )
+                        classification_rows.append(
+                            _metric_summary_row(
+                                bundle_meta=meta,
+                                method="mi_gaussian",
+                                metrics={**mi_metrics, "status": "ok"},
+                            )
+                        )
+                        _progress("    evaluate mi_gaussian: ok", quiet=args.quiet)
+                    except Exception as exc:
+                        _progress(f"    evaluate mi_gaussian: failed ({exc})", quiet=args.quiet)
+                        classification_rows.append(
+                            {
+                                "bundle": bundle_dir.name,
+                                "pattern": meta.get("pattern", ""),
+                                "missing_fraction": meta.get("missing_fraction", ""),
+                                "seed": meta.get("seed", ""),
+                                "method": "mi_gaussian",
+                                "status": "failed",
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }
+                        )
 
     if args.stage in {"impute", "all"}:
         impute_summary_csv = args.output_root / "ckd_ehr_imputation_summary.csv"

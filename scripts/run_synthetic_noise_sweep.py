@@ -93,7 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dataset-root", type=Path, default=Path("benchmarks/simulated/noise_sweep"))
     parser.add_argument("--report-dir", type=Path, default=Path("benchmarks/reports/noise_sweep"))
     parser.add_argument("--dgp-type", default="low_rank_gaussian")
-    parser.add_argument("--algorithms", nargs="+", default=["global_mean", "soft_impute", "forest_diffusion"])
+    parser.add_argument(
+        "--algorithms",
+        nargs="+",
+        default=["global_mean", "soft_impute", "svt", "robust_pca", "forest_diffusion"],
+    )
     parser.add_argument(
         "--base-params-json",
         default='{"n_rows": 400, "n_cols": 300, "rank": 10, "observed_fraction": 0.35, "eval_fraction": 0.2, "factor_scale": 1.0}',

@@ -10,7 +10,7 @@ set -euo pipefail
 #   scripts/run_ckd_all_algorithms.sh \
 #     --target-column EventCKD35 \
 #     --task classification \
-#     --patterns mcar,mar_logistic \
+#     --patterns mcar,mar_logistic,ckd_egfr_censor_gt100 \
 #     --missing-fractions 0.1,0.2,0.3 \
 #     --seeds 0,1,2
 
@@ -19,15 +19,16 @@ DATASET_ROOT="${DATASET_ROOT:-benchmarks/datasets/ckd_ehr_all_algorithms}"
 REPORT_ROOT="${REPORT_ROOT:-benchmarks/reports/ckd_ehr_all_algorithms}"
 TARGET_COLUMN="${TARGET_COLUMN:-EventCKD35}"
 TASK="${TASK:-classification}"
-PATTERNS="${PATTERNS:-mcar,mar_logistic}"
+# PATTERNS="${PATTERNS:-mcar,mar_logistic}"
+PATTERNS="${PATTERNS:-mnar_self_logistic,ckd_egfr_censor_gt100}"
 MISSING_FRACTIONS="${MISSING_FRACTIONS:-0.1,0.2,0.3,0.4,0.5,0.6,0.7}"
 SEEDS="${SEEDS:-0,1,2,3,4,5,6,7,8,9}"
 TEST_FRACTION="${TEST_FRACTION:-0.2}"
 INCLUDE_MI_GAUSSIAN="${INCLUDE_MI_GAUSSIAN:-false}"
 STAGE="${STAGE:-all}"
-SKIP_EXISTING_IMPUTATIONS="${SKIP_EXISTING_IMPUTATIONS:-false}"
+SKIP_EXISTING_IMPUTATIONS="${SKIP_EXISTING_IMPUTATIONS:-true}"
 
-ALGORITHMS="${ALGORITHMS:-global_mean,row_mean,col_mean,col_mode,knn,soft_impute,nuclear_norm_minimization,hyperimpute,missforest,forest_diffusion,tab_impute}"
+ALGORITHMS="${ALGORITHMS:-col_mean,col_mode,knn,soft_impute,hyperimpute,missforest,tab_impute}"
 ALGORITHM_PARAMS_JSON="${ALGORITHM_PARAMS_JSON:-{\"tab_impute\":{\"device\":\"cuda\",\"model_version\":2,\"allow_v1_fallback\":true,\"max_num_rows\":256,\"max_num_chunks\":4,\"num_repeats\":1}}}"
 
 usage() {
@@ -40,7 +41,7 @@ Options:
   --report-root PATH             Output root for benchmark reports.
   --target-column NAME           Target column (EventCKD35 or TimeToEventMonths, etc.).
   --task NAME                    classification or regression.
-  --patterns CSV                 Missingness patterns CSV (e.g. mcar,mar_logistic).
+  --patterns CSV                 Missingness patterns CSV (e.g. mcar,mar_logistic,ckd_egfr_censor_gt100).
   --missing-fractions CSV        Missingness fractions CSV.
   --seeds CSV                    Seed list CSV.
   --test-fraction FLOAT          Downstream test split fraction.

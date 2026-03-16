@@ -16,14 +16,25 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument(
         "--pattern",
-        choices=["mcar", "mar_logistic", "mnar_self_logistic", "block", "bursty"],
+        choices=["mcar", "mar_logistic", "mnar_self_logistic", "block", "bursty", "censor_above_threshold"],
         default="mcar",
     )
     parser.add_argument("--missing-fraction", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--feature-col", type=int, default=None, help="Used for mar_logistic.")
+    parser.add_argument(
+        "--feature-col",
+        type=int,
+        default=None,
+        help="Used for mar_logistic and censor_above_threshold.",
+    )
     parser.add_argument("--block-axis", choices=["rows", "cols"], default="rows")
     parser.add_argument("--burst-max", type=int, default=12)
+    parser.add_argument(
+        "--censor-threshold",
+        type=float,
+        default=100.0,
+        help="Used for censor_above_threshold: values above this threshold are censored in --feature-col.",
+    )
     args = parser.parse_args()
 
     matrix = load_matrix(args.input_matrix)
@@ -35,6 +46,7 @@ def main() -> None:
         feature_col=args.feature_col,
         block_axis=args.block_axis,
         burst_max=args.burst_max,
+        censor_threshold=args.censor_threshold,
     )
     observed = apply_missingness(matrix=matrix, missing_mask=missing_mask)
 
@@ -54,6 +66,7 @@ def main() -> None:
             "feature_col": args.feature_col,
             "block_axis": args.block_axis,
             "burst_max": args.burst_max,
+            "censor_threshold": args.censor_threshold,
         },
     )
     print(f"wrote missingness bundle: {args.output_dir}")
@@ -61,4 +74,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

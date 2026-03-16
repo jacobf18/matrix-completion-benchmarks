@@ -5,7 +5,14 @@ from typing import Literal
 import numpy as np
 
 
-PatternKind = Literal["mcar", "mar_logistic", "mnar_self_logistic", "block", "bursty"]
+PatternKind = Literal[
+    "mcar",
+    "mar_logistic",
+    "mnar_self_logistic",
+    "block",
+    "bursty",
+    "censor_above_threshold",
+]
 
 
 def generate_missingness_mask(
@@ -17,14 +24,23 @@ def generate_missingness_mask(
     feature_col: int | None = None,
     block_axis: Literal["rows", "cols"] = "rows",
     burst_max: int = 12,
+    censor_threshold: float = 100.0,
 ) -> np.ndarray:
     if matrix.ndim != 2:
         raise ValueError("matrix must be 2D.")
-    if not (0 < missing_fraction < 1):
+    if kind != "censor_above_threshold" and not (0 < missing_fraction < 1):
         raise ValueError("missing_fraction must be in (0, 1).")
 
     rng = np.random.default_rng(seed)
     finite = np.isfinite(matrix)
+    if kind == "censor_above_threshold":
+        return _censor_above_threshold(
+            matrix=matrix,
+            finite=finite,
+            feature_col=feature_col,
+            threshold=censor_threshold,
+        )
+
     n_total = int(np.sum(finite))
     if n_total < 2:
         raise ValueError("Need at least two finite entries to generate missingness.")
@@ -188,6 +204,22 @@ def _bursty_missing(
             idx = np.flatnonzero(miss)
             restore = rng.choice(idx, size=current - n_missing, replace=False)
             miss.flat[restore] = False
+    return miss
+
+
+def _censor_above_threshold(
+    matrix: np.ndarray,
+    finite: np.ndarray,
+    feature_col: int | None,
+    threshold: float,
+) -> np.ndarray:
+    n_rows, n_cols = matrix.shape
+    col = int(feature_col) if feature_col is not None else 0
+    if not (0 <= col < n_cols):
+        raise ValueError("feature_col out of bounds.")
+    miss = np.zeros_like(finite, dtype=bool)
+    eligible = finite[:, col] & (matrix[:, col] > threshold)
+    miss[eligible, col] = True
     return miss
 
 
